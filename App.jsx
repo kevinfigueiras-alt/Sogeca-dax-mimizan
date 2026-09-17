@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus, Pencil, Trash2, Search, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   Users, Wallet, FileText, AlertTriangle, Loader2, MapPin, TrendingUp, UserMinus,
-  LayoutDashboard, LogOut, RotateCcw, Trash, Plane, Landmark, Target, CheckCircle2, Award, RefreshCw, Rocket
+  LayoutDashboard, LogOut, RotateCcw, Trash, Plane, Landmark, Target, CheckCircle2, Award, RefreshCw, Rocket, Banknote, Receipt, BarChart3, ArrowUp, ArrowDown, Lock
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { storageGet, storageSet } from "./lib/storage.js";
@@ -73,19 +73,33 @@ const STORAGE_KEY_CHARGES = "sogeca-charges-fixes";
 const STORAGE_KEY_PROSPECTS = "sogeca-prospects";
 const STORAGE_KEY_PCA = "sogeca-pca";
 const STORAGE_KEY_PRIMES = "sogeca-primes";
+const STORAGE_KEY_TRESORERIE = "sogeca-tresorerie";
+const STORAGE_KEY_TARIF = "sogeca-hausse-tarifaire";
+const STORAGE_KEY_CREANCES = "sogeca-creances";
+const STORAGE_KEY_DETTES = "sogeca-dettes";
+const ADVANCED_CODE = import.meta.env.VITE_ADVANCED_CODE || "";
+const ADVANCED_SESSION_KEY = "sogeca-advanced-unlocked";
+const RESTRICTED_TABS = new Set(["atterrissage", "prospects", "primes", "pipeline", "tresorerie", "creancesdettes", "comparatif"]);
 const SITES_CHARGE = ["Commun", "DAX", "MIMIZAN"];
 const CATEGORIES_CHARGE = ["Charges Externes", "Impôts et Taxes", "Charges de Personnel", "Charges sociales", "Refacturations"];
 const MONTHS = ["2026-07","2026-08","2026-09","2026-10","2026-11","2026-12","2027-01","2027-02","2027-03","2027-04","2027-05","2027-06"];
 const MONTH_LABELS = { "2026-07":"juil-26","2026-08":"août-26","2026-09":"sept-26","2026-10":"oct-26","2026-11":"nov-26","2026-12":"déc-26","2027-01":"janv-27","2027-02":"févr-27","2027-03":"mars-27","2027-04":"avr-27","2027-05":"mai-27","2027-06":"juin-27" };
 let chargeIdCounter = 1;
-const newCharge = () => ({
+const newCharge = (categorie = "Charges Externes") => ({
   id: `c${Date.now()}-${chargeIdCounter++}`,
-  categorie: "Charges Externes",
+  categorie,
   libelle: "",
   site: "Commun",
   months: Object.fromEntries(MONTHS.map((m) => [m, 0])),
 });
 const lineTotal = (c) => MONTHS.reduce((s, m) => s + n(c.months?.[m]), 0);
+
+let etalIdCounter = 1;
+const newEtalement = () => ({
+  id: `e${Date.now()}-${etalIdCounter++}`,
+  libelle: "",
+  months: Object.fromEntries(MONTHS.map((m) => [m, 0])),
+});
 
 /* Charges fixes initiales (juil-26 à juin-27) */
 const INITIAL_CHARGES = [{"id":"seed1","categorie":"Charges Externes","libelle":"Elec. DAX","site":"DAX","months":{"2026-07":250.0,"2026-08":250.0,"2026-09":250.0,"2026-10":250.0,"2026-11":250.0,"2026-12":250.0,"2027-01":250.0,"2027-02":250.0,"2027-03":250.0,"2027-04":250.0,"2027-05":250.0,"2027-06":250.0}},{"id":"seed2","categorie":"Charges Externes","libelle":"Elec. MMZ","site":"MIMIZAN","months":{"2026-07":85.0,"2026-08":85.0,"2026-09":85.0,"2026-10":85.0,"2026-11":85.0,"2026-12":85.0,"2027-01":85.0,"2027-02":85.0,"2027-03":85.0,"2027-04":85.0,"2027-05":85.0,"2027-06":85.0}},{"id":"seed3","categorie":"Charges Externes","libelle":"Eau. DAX","site":"DAX","months":{"2026-07":50.0,"2026-08":50.0,"2026-09":50.0,"2026-10":50.0,"2026-11":50.0,"2026-12":50.0,"2027-01":50.0,"2027-02":50.0,"2027-03":50.0,"2027-04":50.0,"2027-05":50.0,"2027-06":50.0}},{"id":"seed4","categorie":"Charges Externes","libelle":"Gaz. DAX","site":"DAX","months":{"2026-07":25.0,"2026-08":25.0,"2026-09":25.0,"2026-10":25.0,"2026-11":25.0,"2026-12":25.0,"2027-01":25.0,"2027-02":25.0,"2027-03":25.0,"2027-04":25.0,"2027-05":25.0,"2027-06":25.0}},{"id":"seed5","categorie":"Charges Externes","libelle":"Petit Equip.","site":"Commun","months":{"2026-07":1250.0,"2026-08":1250.0,"2026-09":1250.0,"2026-10":1250.0,"2026-11":1250.0,"2026-12":1250.0,"2027-01":1250.0,"2027-02":1250.0,"2027-03":1250.0,"2027-04":1250.0,"2027-05":1250.0,"2027-06":1250.0}},{"id":"seed6","categorie":"Charges Externes","libelle":"Recyclage papier","site":"Commun","months":{"2026-07":55.0,"2026-08":55.0,"2026-09":55.0,"2026-10":55.0,"2026-11":55.0,"2026-12":55.0,"2027-01":55.0,"2027-02":55.0,"2027-03":55.0,"2027-04":55.0,"2027-05":55.0,"2027-06":55.0}},{"id":"seed7","categorie":"Charges Externes","libelle":"Fournit. Adm.","site":"Commun","months":{"2026-07":250.0,"2026-08":250.0,"2026-09":250.0,"2026-10":250.0,"2026-11":250.0,"2026-12":250.0,"2027-01":250.0,"2027-02":250.0,"2027-03":250.0,"2027-04":250.0,"2027-05":250.0,"2027-06":250.0}},{"id":"seed8","categorie":"Charges Externes","libelle":"Sous traitance Groupe SOGEA","site":"Commun","months":{"2026-07":31728.33,"2026-08":31728.33,"2026-09":31728.33,"2026-10":31728.33,"2026-11":31728.33,"2026-12":31728.33,"2027-01":31728.33,"2027-02":31728.33,"2027-03":31728.33,"2027-04":31728.33,"2027-05":31728.33,"2027-06":31728.33}},{"id":"seed9","categorie":"Charges Externes","libelle":"Sous traitance MANOMA INV.","site":"Commun","months":{"2026-07":10000.0,"2026-08":10000.0,"2026-09":10000.0,"2026-10":10000.0,"2026-11":10000.0,"2026-12":10000.0,"2027-01":10000.0,"2027-02":10000.0,"2027-03":10000.0,"2027-04":10000.0,"2027-05":10000.0,"2027-06":10000.0}},{"id":"seed10","categorie":"Charges Externes","libelle":"Sous traitance SOLENE EC","site":"Commun","months":{"2026-07":7500.0,"2026-08":7500.0,"2026-09":7500.0,"2026-10":7500.0,"2026-11":7500.0,"2026-12":7500.0,"2027-01":8500.0,"2027-02":8500.0,"2027-03":8500.0,"2027-04":8500.0,"2027-05":8500.0,"2027-06":8500.0}},{"id":"seed11","categorie":"Charges Externes","libelle":"Location locaux DAX","site":"DAX","months":{"2026-07":5516.52,"2026-08":5516.52,"2026-09":5516.52,"2026-10":5347.0,"2026-11":5347.0,"2026-12":5347.0,"2027-01":5347.0,"2027-02":5347.0,"2027-03":5347.0,"2027-04":5347.0,"2027-05":5347.0,"2027-06":5347.0}},{"id":"seed12","categorie":"Charges Externes","libelle":"Location locaux MIMIZAN","site":"MIMIZAN","months":{"2026-07":3050.0,"2026-08":3050.0,"2026-09":3050.0,"2026-10":3050.0,"2026-11":3050.0,"2026-12":3050.0,"2027-01":3050.0,"2027-02":3050.0,"2027-03":3050.0,"2027-04":3050.0,"2027-05":3050.0,"2027-06":3050.0}},{"id":"seed13","categorie":"Charges Externes","libelle":"Location Machine à affranchir","site":"Commun","months":{"2026-07":42.92,"2026-08":42.92,"2026-09":42.92,"2026-10":42.92,"2026-11":42.92,"2026-12":42.92,"2027-01":42.92,"2027-02":42.92,"2027-03":42.92,"2027-04":42.92,"2027-05":42.92,"2027-06":42.92}},{"id":"seed14","categorie":"Charges Externes","libelle":"Location Machine à café","site":"Commun","months":{"2026-07":62.0,"2026-08":62.0,"2026-09":62.0,"2026-10":62.0,"2026-11":62.0,"2026-12":62.0,"2027-01":62.0,"2027-02":62.0,"2027-03":62.0,"2027-04":62.0,"2027-05":62.0,"2027-06":62.0}},{"id":"seed15","categorie":"Charges Externes","libelle":"Nettoyage locaux - jardin","site":"Commun","months":{"2026-07":833.33,"2026-08":833.33,"2026-09":833.33,"2026-10":833.33,"2026-11":833.33,"2026-12":833.33,"2027-01":833.33,"2027-02":833.33,"2027-03":833.33,"2027-04":833.33,"2027-05":833.33,"2027-06":833.33}},{"id":"seed16","categorie":"Charges Externes","libelle":"Maintenance diverses","site":"Commun","months":{"2026-07":100.0,"2026-08":100.0,"2026-09":100.0,"2026-10":100.0,"2026-11":100.0,"2026-12":100.0,"2027-01":100.0,"2027-02":100.0,"2027-03":100.0,"2027-04":100.0,"2027-05":100.0,"2027-06":100.0}},{"id":"seed17","categorie":"Charges Externes","libelle":"Alarme DAX","site":"DAX","months":{"2026-07":75.0,"2026-08":75.0,"2026-09":75.0,"2026-10":75.0,"2026-11":75.0,"2026-12":75.0,"2027-01":75.0,"2027-02":75.0,"2027-03":75.0,"2027-04":75.0,"2027-05":75.0,"2027-06":75.0}},{"id":"seed18","categorie":"Charges Externes","libelle":"Alarme MMZ","site":"MIMIZAN","months":{"2026-07":75.0,"2026-08":75.0,"2026-09":75.0,"2026-10":75.0,"2026-11":75.0,"2026-12":75.0,"2027-01":75.0,"2027-02":75.0,"2027-03":75.0,"2027-04":75.0,"2027-05":75.0,"2027-06":75.0}},{"id":"seed19","categorie":"Charges Externes","libelle":"Assurances","site":"Commun","months":{"2026-07":215.0,"2026-08":215.0,"2026-09":215.0,"2026-10":215.0,"2026-11":215.0,"2026-12":215.0,"2027-01":215.0,"2027-02":215.0,"2027-03":215.0,"2027-04":215.0,"2027-05":215.0,"2027-06":215.0}},{"id":"seed20","categorie":"Charges Externes","libelle":"Abonnement","site":"Commun","months":{"2026-07":27.0,"2026-08":27.0,"2026-09":27.0,"2026-10":27.0,"2026-11":27.0,"2026-12":27.0,"2027-01":27.0,"2027-02":27.0,"2027-03":27.0,"2027-04":27.0,"2027-05":27.0,"2027-06":27.0}},{"id":"seed21","categorie":"Charges Externes","libelle":"Documentation tech.","site":"Commun","months":{"2026-07":45.0,"2026-08":45.0,"2026-09":45.0,"2026-10":45.0,"2026-11":45.0,"2026-12":45.0,"2027-01":45.0,"2027-02":45.0,"2027-03":45.0,"2027-04":45.0,"2027-05":45.0,"2027-06":45.0}},{"id":"seed22","categorie":"Charges Externes","libelle":"Frais de déplacements.","site":"Commun","months":{"2026-07":2500.0,"2026-08":2500.0,"2026-09":2500.0,"2026-10":2500.0,"2026-11":2500.0,"2026-12":2500.0,"2027-01":2500.0,"2027-02":2500.0,"2027-03":2500.0,"2027-04":2500.0,"2027-05":2500.0,"2027-06":2500.0}},{"id":"seed23","categorie":"Charges Externes","libelle":"Formations","site":"Commun","months":{"2026-07":100.0,"2026-08":100.0,"2026-09":100.0,"2026-10":100.0,"2026-11":100.0,"2026-12":100.0,"2027-01":100.0,"2027-02":100.0,"2027-03":100.0,"2027-04":100.0,"2027-05":100.0,"2027-06":100.0}},{"id":"seed24","categorie":"Charges Externes","libelle":"Orange Intranet (DAX)","site":"DAX","months":{"2026-07":153.85,"2026-08":153.85,"2026-09":153.85,"2026-10":153.85,"2026-11":153.85,"2026-12":153.85,"2027-01":153.85,"2027-02":153.85,"2027-03":153.85,"2027-04":153.85,"2027-05":153.85,"2027-06":153.85}},{"id":"seed25","categorie":"Charges Externes","libelle":"Orange Fibre (MMZ)","site":"MIMIZAN","months":{"2026-07":75.0,"2026-08":75.0,"2026-09":75.0,"2026-10":75.0,"2026-11":75.0,"2026-12":75.0,"2027-01":75.0,"2027-02":75.0,"2027-03":75.0,"2027-04":75.0,"2027-05":75.0,"2027-06":75.0}},{"id":"seed26","categorie":"Charges Externes","libelle":"Collecte courrier","site":"Commun","months":{"2026-07":208.33,"2026-08":208.33,"2026-09":208.33,"2026-10":208.33,"2026-11":208.33,"2026-12":208.33,"2027-01":208.33,"2027-02":208.33,"2027-03":208.33,"2027-04":208.33,"2027-05":208.33,"2027-06":208.33}},{"id":"seed27","categorie":"Charges Externes","libelle":"Services bancaires","site":"Commun","months":{"2026-07":375.0,"2026-08":375.0,"2026-09":375.0,"2026-10":375.0,"2026-11":375.0,"2026-12":375.0,"2027-01":375.0,"2027-02":375.0,"2027-03":375.0,"2027-04":375.0,"2027-05":375.0,"2027-06":375.0}},{"id":"seed28","categorie":"Charges Externes","libelle":"Cotisations prof.","site":"Commun","months":{"2026-07":625.0,"2026-08":625.0,"2026-09":625.0,"2026-10":625.0,"2026-11":625.0,"2026-12":625.0,"2027-01":625.0,"2027-02":625.0,"2027-03":625.0,"2027-04":625.0,"2027-05":625.0,"2027-06":625.0}},{"id":"seed29","categorie":"Charges Externes","libelle":"Convention SOGECA","site":"Commun","months":{"2026-07":0.0,"2026-08":0.0,"2026-09":8000.0,"2026-10":0.0,"2026-11":0.0,"2026-12":0.0,"2027-01":0.0,"2027-02":0.0,"2027-03":0.0,"2027-04":0.0,"2027-05":0.0,"2027-06":0.0}},{"id":"seed30","categorie":"Charges Externes","libelle":"Divers Dons","site":"Commun","months":{"2026-07":500.0,"2026-08":500.0,"2026-09":500.0,"2026-10":500.0,"2026-11":500.0,"2026-12":500.0,"2027-01":500.0,"2027-02":500.0,"2027-03":500.0,"2027-04":500.0,"2027-05":500.0,"2027-06":500.0}},{"id":"seed31","categorie":"Charges Externes","libelle":"Cadeaux","site":"Commun","months":{"2026-07":166.67,"2026-08":166.67,"2026-09":166.67,"2026-10":166.67,"2026-11":166.67,"2026-12":166.67,"2027-01":166.67,"2027-02":166.67,"2027-03":166.67,"2027-04":166.67,"2027-05":166.67,"2027-06":166.67}},{"id":"seed32","categorie":"Charges Externes","libelle":"Publicité","site":"Commun","months":{"2026-07":1250.0,"2026-08":1250.0,"2026-09":1250.0,"2026-10":1250.0,"2026-11":1250.0,"2026-12":1250.0,"2027-01":1250.0,"2027-02":1250.0,"2027-03":1250.0,"2027-04":1250.0,"2027-05":1250.0,"2027-06":1250.0}},{"id":"seed33","categorie":"Impôts et Taxes","libelle":"CET - CVAE","site":"Commun","months":{"2026-07":333.33,"2026-08":333.33,"2026-09":333.33,"2026-10":333.33,"2026-11":333.33,"2026-12":333.33,"2027-01":333.33,"2027-02":333.33,"2027-03":333.33,"2027-04":333.33,"2027-05":333.33,"2027-06":333.33}},{"id":"seed34","categorie":"Impôts et Taxes","libelle":"Taxe foncière DAX","site":"DAX","months":{"2026-07":208.33,"2026-08":208.33,"2026-09":208.33,"2026-10":208.33,"2026-11":208.33,"2026-12":208.33,"2027-01":208.33,"2027-02":208.33,"2027-03":208.33,"2027-04":208.33,"2027-05":208.33,"2027-06":208.33}},{"id":"seed35","categorie":"Impôts et Taxes","libelle":"Taxe foncière MMZ","site":"MIMIZAN","months":{"2026-07":83.33,"2026-08":83.33,"2026-09":83.33,"2026-10":83.33,"2026-11":83.33,"2026-12":83.33,"2027-01":83.33,"2027-02":83.33,"2027-03":83.33,"2027-04":83.33,"2027-05":83.33,"2027-06":83.33}},{"id":"seed36","categorie":"Charges de Personnel","libelle":"Eva COURBOULES","site":"DAX","months":{"2026-07":3286.45,"2026-08":3286.45,"2026-09":3286.45,"2026-10":3286.45,"2026-11":3286.45,"2026-12":3286.45,"2027-01":3385.04,"2027-02":3385.04,"2027-03":3385.04,"2027-04":3385.04,"2027-05":3385.04,"2027-06":3385.04}},{"id":"seed37","categorie":"Charges de Personnel","libelle":"Cristina FARIA","site":"DAX","months":{"2026-07":2550.0,"2026-08":2550.0,"2026-09":2550.0,"2026-10":2550.0,"2026-11":2550.0,"2026-12":2550.0,"2027-01":2550.0,"2027-02":2550.0,"2027-03":2550.0,"2027-04":2550.0,"2027-05":2550.0,"2027-06":2550.0}},{"id":"seed38","categorie":"Charges de Personnel","libelle":"Rémi GOURGUES","site":"DAX","months":{"2026-07":4734.74,"2026-08":4734.74,"2026-09":4734.74,"2026-10":4734.74,"2026-11":4734.74,"2026-12":4734.74,"2027-01":4834.74,"2027-02":4834.74,"2027-03":4834.74,"2027-04":4834.74,"2027-05":4834.74,"2027-06":4834.74}},{"id":"seed39","categorie":"Charges de Personnel","libelle":"Valérie GUICHEMERRE","site":"DAX","months":{"2026-07":3570.0,"2026-08":3570.0,"2026-09":3571.0,"2026-10":3572.0,"2026-11":3573.0,"2026-12":3574.0,"2027-01":3575.0,"2027-02":3576.0,"2027-03":3577.0,"2027-04":3578.0,"2027-05":3579.0,"2027-06":3580.0}},{"id":"seed40","categorie":"Charges de Personnel","libelle":"Isabelle INACIO","site":"DAX","months":{"2026-07":4020.16,"2026-08":4020.16,"2026-09":4020.16,"2026-10":4020.16,"2026-11":4020.16,"2026-12":4020.16,"2027-01":4020.16,"2027-02":4020.16,"2027-03":4020.16,"2027-04":4020.16,"2027-05":4020.16,"2027-06":4020.16}},{"id":"seed41","categorie":"Charges de Personnel","libelle":"Jeremy JOLIBERT","site":"DAX","months":{"2026-07":3150.93,"2026-08":3150.93,"2026-09":3150.93,"2026-10":3150.93,"2026-11":3150.93,"2026-12":3150.93,"2027-01":3245.46,"2027-02":3245.46,"2027-03":3245.46,"2027-04":3245.46,"2027-05":3245.46,"2027-06":3245.46}},{"id":"seed42","categorie":"Charges de Personnel","libelle":"Thérèse LASSALLE","site":"DAX","months":{"2026-07":3831.34,"2026-08":3831.34,"2026-09":3831.34,"2026-10":3831.34,"2026-11":3831.34,"2026-12":3831.34,"2027-01":3831.34,"2027-02":3831.34,"2027-03":3831.34,"2027-04":3831.34,"2027-05":3831.34,"2027-06":3831.34}},{"id":"seed43","categorie":"Charges de Personnel","libelle":"Catherine MILLET","site":"DAX","months":{"2026-07":2906.09,"2026-08":2906.09,"2026-09":2906.09,"2026-10":2906.09,"2026-11":2906.09,"2026-12":2906.09,"2027-01":2993.27,"2027-02":2993.27,"2027-03":2993.27,"2027-04":2993.27,"2027-05":2993.27,"2027-06":2993.27}},{"id":"seed44","categorie":"Charges de Personnel","libelle":"Laure POCHODZAJ","site":"DAX","months":{"2026-07":3229.73,"2026-08":3229.73,"2026-09":3229.73,"2026-10":3229.73,"2026-11":3229.73,"2026-12":3229.73,"2027-01":3326.62,"2027-02":3326.62,"2027-03":3326.62,"2027-04":3326.62,"2027-05":3326.62,"2027-06":3326.62}},{"id":"seed45","categorie":"Charges de Personnel","libelle":"Virginie REUTIN","site":"DAX","months":{"2026-07":2962.52,"2026-08":2962.52,"2026-09":2962.52,"2026-10":2962.52,"2026-11":2962.52,"2026-12":2962.52,"2027-01":3051.4,"2027-02":3051.4,"2027-03":3051.4,"2027-04":3051.4,"2027-05":3051.4,"2027-06":3051.4}},{"id":"seed46","categorie":"Charges de Personnel","libelle":"Remi ROUX","site":"DAX","months":{"2026-07":2900.0,"2026-08":2900.0,"2026-09":2900.0,"2026-10":2900.0,"2026-11":2900.0,"2026-12":2900.0,"2027-01":2987.0,"2027-02":2987.0,"2027-03":2987.0,"2027-04":2987.0,"2027-05":2987.0,"2027-06":2987.0}},{"id":"seed47","categorie":"Charges de Personnel","libelle":"Aurélie DEJEAN","site":"DAX","months":{"2026-07":2489.26,"2026-08":2489.26,"2026-09":2489.26,"2026-10":2489.26,"2026-11":2489.26,"2026-12":2489.26,"2027-01":2563.94,"2027-02":2563.94,"2027-03":2563.94,"2027-04":2563.94,"2027-05":2563.94,"2027-06":2563.94}},{"id":"seed48","categorie":"Charges de Personnel","libelle":"Marie GARBAY","site":"DAX","months":{"2026-07":3700.0,"2026-08":3700.0,"2026-09":3700.0,"2026-10":3700.0,"2026-11":3700.0,"2026-12":3700.0,"2027-01":3811.0,"2027-02":3811.0,"2027-03":3811.0,"2027-04":3811.0,"2027-05":3811.0,"2027-06":3811.0}},{"id":"seed49","categorie":"Charges de Personnel","libelle":"Muriel LALUQUE","site":"MIMIZAN","months":{"2026-07":3774.0,"2026-08":3774.0,"2026-09":3774.0,"2026-10":3774.0,"2026-11":3774.0,"2026-12":3774.0,"2027-01":3887.22,"2027-02":3887.22,"2027-03":3887.22,"2027-04":3887.22,"2027-05":3887.22,"2027-06":3887.22}},{"id":"seed50","categorie":"Charges de Personnel","libelle":"Marion ARENDS","site":"DAX","months":{"2026-07":1493.56,"2026-08":1493.56,"2026-09":1493.56,"2026-10":1493.56,"2026-11":1493.56,"2026-12":1493.56,"2027-01":1538.37,"2027-02":1538.37,"2027-03":1538.37,"2027-04":1538.37,"2027-05":1538.37,"2027-06":1538.37}},{"id":"seed51","categorie":"Charges de Personnel","libelle":"Aurélie BERTIN","site":"MIMIZAN","months":{"2026-07":3118.0,"2026-08":3118.0,"2026-09":3118.0,"2026-10":3118.0,"2026-11":3118.0,"2026-12":3118.0,"2027-01":3211.54,"2027-02":3211.54,"2027-03":3211.54,"2027-04":3211.54,"2027-05":3211.54,"2027-06":3211.54}},{"id":"seed52","categorie":"Charges de Personnel","libelle":"Nadège PATTYN","site":"DAX","months":{"2026-07":3700.0,"2026-08":3700.0,"2026-09":3700.0,"2026-10":3700.0,"2026-11":3700.0,"2026-12":3700.0,"2027-01":3811.0,"2027-02":3811.0,"2027-03":3811.0,"2027-04":3811.0,"2027-05":3811.0,"2027-06":3811.0}},{"id":"seed53","categorie":"Charges de Personnel","libelle":"Chloé KEIGNAERT","site":"MIMIZAN","months":{"2026-07":692.29,"2026-08":3000.0,"2026-09":3000.0,"2026-10":3000.0,"2026-11":3000.0,"2026-12":3000.0,"2027-01":3090.0,"2027-02":3090.0,"2027-03":3090.0,"2027-04":3090.0,"2027-05":3090.0,"2027-06":3090.0}},{"id":"seed54","categorie":"Charges sociales","libelle":"Cotisations URSSAF","site":"Commun","months":{"2026-07":14588.36,"2026-08":15188.36,"2026-09":15188.62,"2026-10":15188.88,"2026-11":15189.14,"2026-12":15189.4,"2027-01":15525.41,"2027-02":15525.67,"2027-03":15525.93,"2027-04":15526.19,"2027-05":15526.45,"2027-06":29826.71}},{"id":"seed55","categorie":"Charges sociales","libelle":"Cotisations RETRAITE","site":"Commun","months":{"2026-07":3366.54,"2026-08":3505.01,"2026-09":3505.07,"2026-10":3505.13,"2026-11":3505.19,"2026-12":3505.25,"2027-01":3582.79,"2027-02":3582.85,"2027-03":3582.91,"2027-04":3582.97,"2027-05":3583.03,"2027-06":6883.09}},{"id":"seed56","categorie":"Charges sociales","libelle":"Cotisations MUTUELLE","site":"Commun","months":{"2026-07":561.09,"2026-08":584.17,"2026-09":584.18,"2026-10":584.19,"2026-11":584.2,"2026-12":584.21,"2027-01":597.13,"2027-02":597.14,"2027-03":597.15,"2027-04":597.16,"2027-05":597.17,"2027-06":1147.18}},{"id":"seed57","categorie":"Charges sociales","libelle":"Cotisations PREVOYANCE","site":"Commun","months":{"2026-07":561.09,"2026-08":584.17,"2026-09":584.18,"2026-10":584.19,"2026-11":584.2,"2026-12":584.21,"2027-01":597.13,"2027-02":597.14,"2027-03":597.15,"2027-04":597.16,"2027-05":597.17,"2027-06":1147.18}},{"id":"seed58","categorie":"Charges sociales","libelle":"Taxe apprentissage","site":"Commun","months":{"2026-07":381.54,"2026-08":397.23,"2026-09":397.24,"2026-10":397.25,"2026-11":397.25,"2026-12":397.26,"2027-01":406.05,"2027-02":406.06,"2027-03":406.06,"2027-04":406.07,"2027-05":406.08,"2027-06":406.08}},{"id":"seed59","categorie":"Charges sociales","libelle":"Formation continue","site":"Commun","months":{"2026-07":308.6,"2026-08":321.29,"2026-09":321.3,"2026-10":321.3,"2026-11":321.31,"2026-12":321.31,"2027-01":328.42,"2027-02":328.43,"2027-03":328.43,"2027-04":328.44,"2027-05":328.44,"2027-06":328.45}},{"id":"seed60","categorie":"Charges sociales","libelle":"Remboursement Charges de perso.","site":"Commun","months":{"2026-07":-625.0,"2026-08":-625.0,"2026-09":-625.0,"2026-10":-625.0,"2026-11":-625.0,"2026-12":-625.0,"2027-01":-625.0,"2027-02":-625.0,"2027-03":-625.0,"2027-04":-625.0,"2027-05":-625.0,"2027-06":-625.0}},{"id":"seed61","categorie":"Refacturations","libelle":"Refact. Juline CHAROUD","site":"MIMIZAN","months":{"2026-07":2240.0,"2026-08":2240.0,"2026-09":2240.0,"2026-10":2240.0,"2026-11":2240.0,"2026-12":2240.0,"2027-01":2240.0,"2027-02":2240.0,"2027-03":2240.0,"2027-04":2240.0,"2027-05":2240.0,"2027-06":2240.0}}];
@@ -106,8 +120,10 @@ const emptyProspect = () => ({
   collaborateur: "", honoraireEstime: 0, notes: "",
 });
 
-const emptyPca = { ouverture: 0, tauxCloture: 20 };
+const emptyPca = { ouverture: 0, tauxCloture: 20, mode: "taux", delaiMois: 1.5 };
 const emptyPrimes = { collectif: 0, individus: {} };
+const emptyTresorerie = { departCourant: 0, departCAT: 0, departExcedPro: 0, virementCAT: 0, virementExcedPro: 0, moisPrimes: "" };
+const emptyTarif = { taux: 3, actif: false };
 
 function ClientForm({ initial, collaborateurs, mode, onCancel, onSave }) {
   const [form, setForm] = useState(initial);
@@ -468,6 +484,95 @@ function KpiCard({ icon: Icon, label, value, sub, accent }) {
 }
 
 /* ==================================================================== */
+function EtalementTable({ title, subtitle, rows, accentColor, onAdd, onUpdateLocal, onSave, onRemove, totalLabel }) {
+  const monthlyTotals = MONTHS.map((m) => rows.reduce((s, r) => s + n(r.months?.[m]), 0));
+  const grandTotal = monthlyTotals.reduce((s, v) => s + v, 0);
+  return (
+    <div className="mb-8">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-[12.5px] font-semibold" style={{ color: C.text }}>{title}</p>
+          <p className="text-[11px]" style={{ color: C.mutedLight }}>{subtitle}</p>
+        </div>
+        <button onClick={onAdd} className="flex items-center gap-1.5 rounded px-3 py-1.5 text-[13px] font-medium text-white" style={{ background: C.navy }}>
+          <Plus size={14} /> Ajouter une ligne
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+        <table className="w-full border-collapse text-[12px]" style={{ minWidth: 1080 }}>
+          <thead>
+            <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+              <th className="sticky left-0 px-2.5 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, background: C.bg, minWidth: 200 }}>Libellé</th>
+              {MONTHS.map((m) => (
+                <th key={m} className="px-1.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, minWidth: 78 }}>{MONTH_LABELS[m]}</th>
+              ))}
+              <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.text, minWidth: 90 }}>Total</th>
+              <th className="px-1.5 py-2" style={{ minWidth: 50 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="hover:bg-slate-50" style={{ borderBottom: `1px solid ${C.bg}` }}>
+                <td className="sticky left-0 px-2.5 py-1" style={{ background: C.surface }}>
+                  <input value={row.libelle} placeholder="Ex. Client X, Fournisseur Y…"
+                    onChange={(e) => onUpdateLocal(row.id, { libelle: e.target.value })}
+                    onBlur={onSave}
+                    className="w-full rounded border px-1.5 py-1 text-[12px] outline-none" style={{ borderColor: C.border, color: C.text }} />
+                </td>
+                {MONTHS.map((m) => (
+                  <td key={m} className="px-1 py-1">
+                    <input type="number" value={row.months?.[m] ?? 0}
+                      onChange={(e) => onUpdateLocal(row.id, { months: { ...row.months, [m]: e.target.value === "" ? "" : Number(e.target.value) } })}
+                      onBlur={onSave}
+                      className="w-full rounded border px-1 py-1 text-right text-[11.5px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+                  </td>
+                ))}
+                <td className="px-2.5 py-1 text-right tabular-nums text-[12px] font-medium" style={{ color: accentColor }}>{eur(lineTotal(row))}</td>
+                <td className="px-1.5 py-1 text-right">
+                  <button onClick={() => onRemove(row.id)} className="rounded p-1 hover:bg-red-50" style={{ color: C.muted }} aria-label="Supprimer la ligne">
+                    <Trash2 size={13} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr><td colSpan={14} className="px-3 py-8 text-center text-[13px]" style={{ color: C.mutedLight }}>
+                Aucune ligne. Cliquez sur « Ajouter une ligne » pour étaler un premier montant.
+              </td></tr>
+            )}
+          </tbody>
+          {rows.length > 0 && (
+            <tfoot>
+              <tr style={{ background: C.bg }}>
+                <td className="sticky left-0 px-2.5 py-2 text-[12px] font-semibold" style={{ color: C.text, background: C.bg }}>{totalLabel}</td>
+                {monthlyTotals.map((v, i) => (
+                  <td key={i} className="px-1.5 py-2 text-right text-[11px] font-medium tabular-nums" style={{ color: C.text }}>{eurK(v)}</td>
+                ))}
+                <td className="px-2.5 py-2 text-right text-[12.5px] font-bold tabular-nums" style={{ color: accentColor }}>{eur(grandTotal)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* Données réelles du SIG SOGECA DAX (exercices N et N-1, clôture 30/06) — issues du document transmis */
+const SIG_DATA = {"sig":{"ca":{"n":2118584,"n1":1696967},"chargesExternes":{"n":782138,"n1":598214},"valeurAjoutee":{"n":1336445,"n1":1098752},"impotsTaxes":{"n":16429,"n1":13910},"chargesPersonnel":{"n":989627,"n1":893559},"ebe":{"n":330390,"n1":191283},"resultatExploitation":{"n":346952,"n1":124952},"resultatCourantAvantImpots":{"n":353643,"n1":128880},"resultatExercice":{"n":274029,"n1":108872}},"chargesExternes":[{"libelle":"Fournitures Electricité","n":3867,"n1":4596},{"libelle":"Fournitures Eau","n":232,"n1":444},{"libelle":"Fournitures Gaz","n":330,"n1":241},{"libelle":"Achats de petit équipement","n":13234,"n1":34251},{"libelle":"Achats fournitures administratives","n":3077,"n1":2692},{"libelle":"Autres fournitures diverses","n":1122,"n1":0},{"libelle":"Sous-traitance intragroupe","n":363948,"n1":249610},{"libelle":"Locations","n":670,"n1":0},{"libelle":"Locations immobilières","n":99398,"n1":77224},{"libelle":"Locations mobilières","n":9384,"n1":20101},{"libelle":"Entretien immobilier","n":14851,"n1":12807},{"libelle":"Nettoyage locaux, jardins","n":147,"n1":0},{"libelle":"Maintenance","n":4725,"n1":4204},{"libelle":"Primes d'assurance","n":1596,"n1":4669},{"libelle":"Documentation générale","n":344,"n1":310},{"libelle":"Documentation technique","n":922,"n1":669},{"libelle":"Frais de formation","n":2413,"n1":3305},{"libelle":"Rémunération mandats sociaux","n":173179,"n1":114000},{"libelle":"Honoraires externes","n":5164,"n1":4640},{"libelle":"Frais d'actes et contentieux","n":73,"n1":538},{"libelle":"Annonces et insertions","n":17750,"n1":11900},{"libelle":"Cadeaux à la clientèle","n":1975,"n1":1524},{"libelle":"Divers (pourboires, dons courants)","n":5685,"n1":4800},{"libelle":"Voyages et déplacements","n":25840,"n1":15308},{"libelle":"Missions Réceptions","n":16442,"n1":4815},{"libelle":"Frais postaux et collecte courrier","n":2459,"n1":2632},{"libelle":"Frais de télécommunication","n":1080,"n1":3848},{"libelle":"Collecte papier","n":509,"n1":494},{"libelle":"Frais Bancaires","n":4486,"n1":3686},{"libelle":"Cotisations","n":7237,"n1":7009},{"libelle":"Oeuvres Sociales Personnel","n":0,"n1":7898}],"chargesPersonnel":[{"libelle":"Salaires appointements","n":675691,"n1":582746},{"libelle":"Congés payés","n":2258,"n1":7889},{"libelle":"Intéressement individuel","n":35500,"n1":31250},{"libelle":"Intéressement collectif","n":0,"n1":30636},{"libelle":"Indemnités diverses","n":32625,"n1":33838},{"libelle":"Indemnités journalières sécu sociale","n":1238,"n1":3493},{"libelle":"Cotisations à l'Urssaf","n":189555,"n1":148875},{"libelle":"Cotisations aux caisses de retraite","n":39983,"n1":34551},{"libelle":"Cotisations Prévoyance","n":7647,"n1":4312},{"libelle":"Cotisations Mutuelle","n":8972,"n1":7609},{"libelle":"Cotisations autres organismes sociaux","n":283,"n1":228},{"libelle":"Charges sociales sur intéressement","n":-818,"n1":2233},{"libelle":"Charges sociales sur congés payés","n":1217,"n1":3925},{"libelle":"Médecine du travail","n":1853,"n1":1703},{"libelle":"Stagiaires","n":250,"n1":273},{"libelle":"Remboursement charges personnels","n":-6629,"n1":0}],"pca":{"n":-208892,"n1":-88550}};
+
+/* Potentiel de facturation CWE 26-27 lié au déploiement Pennylane / Cegid — colonne DAX du document transmis (Mimizan absent du document) */
+const CWE_PENNYLANE_DAX = {
+  sci: { nb: 160, montant: 18680 },
+  societes: { nb: 215 + 72 + 51, montant: 78408 },
+  bnc: { nb: 44 + 1, montant: 8040 },
+  cegidRevision: { nb: 129, montant: 3096 },
+  cegidTenueSansPA: { nb: 71.5, montant: 10296 },
+  cegidTenueAvecPA: { nb: 71.5, montant: 10296 },
+  total: 128816,
+};
+
 export default function SogecaDashboard() {
   const [clients, setClients] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -482,6 +587,36 @@ export default function SogecaDashboard() {
   const [exiting, setExiting] = useState(null);
   const [hardDeleting, setHardDeleting] = useState(null);
   const [tab, setTab] = useState("dashboard"); // "dashboard" | "sorties" | "collab"
+  const [advancedUnlocked, setAdvancedUnlocked] = useState(() => window.sessionStorage.getItem(ADVANCED_SESSION_KEY) === "1");
+  const [advancedPromptTab, setAdvancedPromptTab] = useState(null);
+  const [advancedCodeInput, setAdvancedCodeInput] = useState("");
+  const [advancedError, setAdvancedError] = useState("");
+
+  const goToTab = (tabKey) => {
+    if (RESTRICTED_TABS.has(tabKey) && !advancedUnlocked) {
+      setAdvancedCodeInput("");
+      setAdvancedError("");
+      setAdvancedPromptTab(tabKey);
+      return;
+    }
+    setTab(tabKey);
+  };
+
+  const submitAdvancedCode = (e) => {
+    e.preventDefault();
+    if (!ADVANCED_CODE) {
+      setAdvancedError("Aucun code avancé n'est configuré côté serveur (VITE_ADVANCED_CODE).");
+      return;
+    }
+    if (advancedCodeInput === ADVANCED_CODE) {
+      window.sessionStorage.setItem(ADVANCED_SESSION_KEY, "1");
+      setAdvancedUnlocked(true);
+      setTab(advancedPromptTab);
+      setAdvancedPromptTab(null);
+    } else {
+      setAdvancedError("Code incorrect.");
+    }
+  };
   const [sortieQuery, setSortieQuery] = useState("");
   const [selectedCollab, setSelectedCollab] = useState("");
   const [charges, setCharges] = useState(null);
@@ -495,33 +630,44 @@ export default function SogecaDashboard() {
   const [savingPca, setSavingPca] = useState(false);
   const [primes, setPrimes] = useState(null);
   const [savingPrimes, setSavingPrimes] = useState(false);
+  const [tresorerie, setTresorerie] = useState(null);
+  const [savingTresorerie, setSavingTresorerie] = useState(false);
+  const [includeCwePennylane, setIncludeCwePennylane] = useState(false);
+  const [tarif, setTarif] = useState(null);
+  const [savingTarif, setSavingTarif] = useState(false);
+  const [creances, setCreances] = useState(null);
+  const [savingCreances, setSavingCreances] = useState(false);
+  const [dettes, setDettes] = useState(null);
+  const [savingDettes, setSavingDettes] = useState(false);
   const PAGE_SIZE = 20;
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const value = await storageGet(STORAGE_KEY);
-        if (value) {
-          setClients(value);
-        } else {
-          const seeded = INITIAL_DATA.map(arrToObj);
-          await storageSet(STORAGE_KEY, seeded);
-          setClients(seeded);
-        }
-      } catch (e) {
+  const loadClients = useCallback(async (isPoll) => {
+    try {
+      const res = await storageGet(STORAGE_KEY);
+      if (res) {
+        setClients(res);
+      } else if (!isPoll) {
+        const seeded = INITIAL_DATA.map(arrToObj);
+        await storageSet(STORAGE_KEY, seeded);
+        setClients(seeded);
+      }
+    } catch (e) {
+      if (!isPoll) {
         const seeded = INITIAL_DATA.map(arrToObj);
         try { await storageSet(STORAGE_KEY, seeded); } catch (e2) {}
         setClients(seeded);
       }
-    })();
+    }
   }, []);
+
+  useEffect(() => { loadClients(false); }, [loadClients]);
 
   useEffect(() => {
     (async () => {
       try {
-        const value = await storageGet(STORAGE_KEY_CHARGES);
-        if (value) {
-          setCharges(value);
+        const res = await storageGet(STORAGE_KEY_CHARGES);
+        if (res) {
+          setCharges(res);
         } else {
           await storageSet(STORAGE_KEY_CHARGES, INITIAL_CHARGES);
           setCharges(INITIAL_CHARGES);
@@ -544,16 +690,16 @@ export default function SogecaDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const value = await storageGet(STORAGE_KEY_PROSPECTS);
-        setProspects(value || []);
-      } catch (e) {
-        setProspects([]);
-      }
-    })();
+  const loadProspects = useCallback(async () => {
+    try {
+      const res = await storageGet(STORAGE_KEY_PROSPECTS);
+      setProspects(res || []);
+    } catch (e) {
+      setProspects((prev) => prev || []);
+    }
   }, []);
+
+  useEffect(() => { loadProspects(); }, [loadProspects]);
 
   const persistProspects = useCallback(async (next) => {
     setProspects(next);
@@ -570,8 +716,8 @@ export default function SogecaDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const value = await storageGet(STORAGE_KEY_PCA);
-        setPca(value || emptyPca);
+        const res = await storageGet(STORAGE_KEY_PCA);
+        setPca(res || emptyPca);
       } catch (e) {
         setPca(emptyPca);
       }
@@ -593,8 +739,8 @@ export default function SogecaDashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const value = await storageGet(STORAGE_KEY_PRIMES);
-        setPrimes(value || emptyPrimes);
+        const res = await storageGet(STORAGE_KEY_PRIMES);
+        setPrimes(res || emptyPrimes);
       } catch (e) {
         setPrimes(emptyPrimes);
       }
@@ -613,12 +759,105 @@ export default function SogecaDashboard() {
     }
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storageGet(STORAGE_KEY_TRESORERIE);
+        setTresorerie(res || emptyTresorerie);
+      } catch (e) {
+        setTresorerie(emptyTresorerie);
+      }
+    })();
+  }, []);
+
+  const persistTresorerie = useCallback(async (next) => {
+    setTresorerie(next);
+    setSavingTresorerie(true);
+    try {
+      await storageSet(STORAGE_KEY_TRESORERIE, next);
+    } catch (e) {
+      // silencieux
+    } finally {
+      setSavingTresorerie(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storageGet(STORAGE_KEY_CREANCES);
+        setCreances(res || []);
+      } catch (e) {
+        setCreances([]);
+      }
+    })();
+  }, []);
+
+  const persistCreances = useCallback(async (next) => {
+    setCreances(next);
+    setSavingCreances(true);
+    try {
+      await storageSet(STORAGE_KEY_CREANCES, next);
+    } catch (e) {
+      // silencieux
+    } finally {
+      setSavingCreances(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storageGet(STORAGE_KEY_DETTES);
+        setDettes(res || []);
+      } catch (e) {
+        setDettes([]);
+      }
+    })();
+  }, []);
+
+  const persistDettes = useCallback(async (next) => {
+    setDettes(next);
+    setSavingDettes(true);
+    try {
+      await storageSet(STORAGE_KEY_DETTES, next);
+    } catch (e) {
+      // silencieux
+    } finally {
+      setSavingDettes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await storageGet(STORAGE_KEY_TARIF);
+        setTarif(res || emptyTarif);
+      } catch (e) {
+        setTarif(emptyTarif);
+      }
+    })();
+  }, []);
+
+  const persistTarif = useCallback(async (next) => {
+    setTarif(next);
+    setSavingTarif(true);
+    try {
+      await storageSet(STORAGE_KEY_TARIF, next);
+    } catch (e) {
+      // silencieux
+    } finally {
+      setSavingTarif(false);
+    }
+  }, []);
+
   const persist = useCallback(async (next) => {
     setClients(next);
     setSaving(true);
     setSaveError("");
     try {
-      await storageSet(STORAGE_KEY, next);
+      const res = await storageSet(STORAGE_KEY, next);
+      if (!res) setSaveError("Échec de l'enregistrement.");
     } catch (e) {
       setSaveError("Échec de l'enregistrement.");
     } finally {
@@ -669,12 +908,55 @@ export default function SogecaDashboard() {
   );
   const collabStats = useMemo(() => {
     const total = collabPortfolio.reduce((s, c) => s + c.total, 0);
+    const net = collabPortfolio.reduce((s, c) => s + c.net, 0);
     const count = collabPortfolio.length;
     const site = collabPortfolio[0]?.site || getSite(selectedCollab);
     const pct = globalStats.totalCA ? total / globalStats.totalCA : 0;
     const avg = count ? total / count : 0;
-    return { total, count, site, pct, avg };
+    return { total, net, count, site, pct, avg };
   }, [collabPortfolio, globalStats.totalCA, selectedCollab]);
+
+  const collabNetRanking = useMemo(() => {
+    const byCollab = {};
+    enriched.forEach((c) => {
+      const key = c.collaborateur || "Non assigné";
+      byCollab[key] = (byCollab[key] || 0) + c.net;
+    });
+    return Object.entries(byCollab)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, val]) => ({ name: name.length > 16 ? name.slice(0, 15) + "…" : name, fullName: name, value: Math.round(val) }));
+  }, [enriched]);
+
+  const pcaTheorique = useMemo(() => {
+    const delai = pca && pca.delaiMois !== undefined && pca.delaiMois !== "" ? n(pca.delaiMois) : 1.5;
+    const lignes = enriched.map((c) => {
+      const cloture = n(c.cloture);
+      let fraction;
+      let regle;
+      if (cloture === 12) {
+        // Règle spécifique 31/12 : révision = mission non commencée (100% PCA), tenue = à mi-parcours (50% PCA)
+        if ((c.tenueRevision || "").toUpperCase().includes("REVISION")) {
+          fraction = 1;
+          regle = "31/12 révision (100%)";
+        } else {
+          fraction = 0.5;
+          regle = "31/12 tenue (50%)";
+        }
+      } else if (cloture >= 1 && cloture <= 12) {
+        fraction = ((cloture + delai - 6 + 12) % 12) / 12;
+        regle = "générique (mois + décalage)";
+      } else {
+        fraction = 0;
+        regle = "clôture inconnue";
+      }
+      const montant = n(c.honoCompta) * fraction;
+      return { ...c, fraction, montantPca: montant, regle };
+    });
+    const total = lignes.reduce((s, l) => s + l.montantPca, 0);
+    const totalDAX = lignes.filter((l) => l.site === "DAX").reduce((s, l) => s + l.montantPca, 0);
+    const totalMIMIZAN = lignes.filter((l) => l.site === "MIMIZAN").reduce((s, l) => s + l.montantPca, 0);
+    return { lignes, total, totalDAX, totalMIMIZAN, delai };
+  }, [enriched, pca]);
 
   const totalPrimes = useMemo(() => {
     if (!primes) return 0;
@@ -699,14 +981,20 @@ export default function SogecaDashboard() {
     const chargesDAX = list.filter((c) => c.site === "DAX").reduce((s, c) => s + lineTotal(c), 0);
     const chargesMIMIZAN = list.filter((c) => c.site === "MIMIZAN").reduce((s, c) => s + lineTotal(c), 0);
     const chargesCommun = list.filter((c) => c.site === "Commun").reduce((s, c) => s + lineTotal(c), 0);
-    const caDAX = globalStats.bySite.DAX;
-    const caMIMIZAN = globalStats.bySite.MIMIZAN;
-    const totalCA = globalStats.totalCA;
+    const tauxHausse = tarif?.actif ? 1 + n(tarif.taux) / 100 : 1;
+    const caDAXBase = globalStats.bySite.DAX * tauxHausse;
+    const caMIMIZAN = globalStats.bySite.MIMIZAN * tauxHausse;
+    const totalCABase = globalStats.totalCA * tauxHausse;
+    const hausseMontant = globalStats.totalCA * (tauxHausse - 1);
     const pcaOuverture = n(pca?.ouverture);
     const tauxCloture = pca && pca.tauxCloture !== undefined && pca.tauxCloture !== "" ? n(pca.tauxCloture) : 20;
-    const caApresExtourne = totalCA + pcaOuverture;
-    const pcaCloture = (tauxCloture / 100) * caApresExtourne;
+    const caApresExtourne = totalCABase + pcaOuverture;
+    const pcaModeTheorique = pca?.mode === "theorique";
+    const pcaCloture = pcaModeTheorique ? pcaTheorique.total : (tauxCloture / 100) * caApresExtourne;
     const pcaNet = pcaOuverture - pcaCloture;
+    const cwePennylane = includeCwePennylane ? CWE_PENNYLANE_DAX.total : 0;
+    const totalCA = totalCABase + cwePennylane;
+    const caDAX = caDAXBase + cwePennylane;
     const caAjuste = totalCA + pcaNet;
     const poidsDAX = totalCA ? caDAX / totalCA : 0;
     const poidsMIMIZAN = totalCA ? caMIMIZAN / totalCA : 0;
@@ -720,8 +1008,8 @@ export default function SogecaDashboard() {
       label: MONTH_LABELS[m],
       value: Math.round(list.reduce((s, c) => s + n(c.months?.[m]), 0)),
     }));
-    return { totalCharges, chargesDAX, chargesMIMIZAN, chargesCommun, resultatDAX, resultatMIMIZAN, resultatNet, resultatNetAvantPrimes, tauxMarge, monthlyTotals, pcaOuverture, pcaCloture, pcaNet, caAjuste, caApresExtourne, tauxCloture };
-  }, [charges, globalStats, pca, totalPrimes]);
+    return { totalCharges, chargesDAX, chargesMIMIZAN, chargesCommun, resultatDAX, resultatMIMIZAN, resultatNet, resultatNetAvantPrimes, tauxMarge, monthlyTotals, pcaOuverture, pcaCloture, pcaNet, caAjuste, caApresExtourne, tauxCloture, cwePennylane, pcaModeTheorique, tauxHausse, hausseMontant };
+  }, [charges, globalStats, pca, totalPrimes, includeCwePennylane, pcaTheorique, tarif]);
 
   const pipeline = useMemo(() => {
     const list = prospects || [];
@@ -743,6 +1031,109 @@ export default function SogecaDashboard() {
 
     return { caProspects, bySite, caTotalPipeline, resultatAvecPipeline, tauxMargePipeline, gainPotentiel, nbProspects: list.length, caDAXPipeline, caMIMIZANPipeline, resultatDAXPipeline, resultatMIMIZANPipeline };
   }, [prospects, atterrissage, totalPrimes, globalStats]);
+
+  const comparatif = useMemo(() => {
+    const caGrowthPct = SIG_DATA.sig.ca.n1 ? (SIG_DATA.sig.ca.n - SIG_DATA.sig.ca.n1) / SIG_DATA.sig.ca.n1 : 0;
+    const allDetail = [
+      ...SIG_DATA.chargesExternes.map((l) => ({ ...l, categorie: "Charges externes" })),
+      ...SIG_DATA.chargesPersonnel.map((l) => ({ ...l, categorie: "Charges de personnel" })),
+    ].map((l) => {
+      const varValeur = l.n - l.n1;
+      const varPct = l.n1 ? varValeur / Math.abs(l.n1) : (l.n > 0 ? Infinity : 0);
+      return { ...l, varValeur, varPct };
+    });
+    // Axes d'amélioration : postes en hausse, dont la croissance dépasse celle du CA, triés par impact € décroissant
+    const axesAmelioration = allDetail
+      .filter((l) => l.varValeur > 0 && l.n1 > 0 && l.varPct > caGrowthPct)
+      .sort((a, b) => b.varValeur - a.varValeur)
+      .slice(0, 8);
+    return { caGrowthPct, allDetail, axesAmelioration };
+  }, []);
+
+  const projVsReel = useMemo(() => {
+    const list = charges || [];
+    const sumCat = (cat) => list.filter((c) => c.categorie === cat).reduce((s, c) => s + lineTotal(c), 0);
+    const chargesExternesProjete = sumCat("Charges Externes") + sumCat("Refacturations");
+    const impotsProjete = sumCat("Impôts et Taxes");
+    const personnelProjete = sumCat("Charges de Personnel") + sumCat("Charges sociales") + totalPrimes;
+    const caProjete = atterrissage.caAjuste;
+    const vaProjete = caProjete - chargesExternesProjete;
+    const ebeProjete = vaProjete - impotsProjete - personnelProjete;
+
+    const caReel = SIG_DATA.sig.ca.n;
+    const chargesExternesReel = SIG_DATA.sig.chargesExternes.n;
+    const impotsReel = SIG_DATA.sig.impotsTaxes.n;
+    const personnelReel = SIG_DATA.sig.chargesPersonnel.n;
+    const vaReel = SIG_DATA.sig.valeurAjoutee.n;
+    const ebeReel = SIG_DATA.sig.ebe.n;
+
+    const caGrowth = caReel ? (caProjete - caReel) / caReel : 0;
+
+    const rows = [
+      { label: "Chiffre d'affaires H.T.", projete: caProjete, reel: caReel, isCharge: false },
+      { label: "Charges externes (+ refacturations)", projete: chargesExternesProjete, reel: chargesExternesReel, isCharge: true },
+      { label: "Valeur ajoutée", projete: vaProjete, reel: vaReel, isCharge: false },
+      { label: "Impôts et taxes", projete: impotsProjete, reel: impotsReel, isCharge: true },
+      { label: "Charges de personnel (+ primes)", projete: personnelProjete, reel: personnelReel, isCharge: true },
+      { label: "Excédent brut d'exploitation (comparable)", projete: ebeProjete, reel: ebeReel, isCharge: false },
+    ].map((r) => {
+      const varValeur = r.projete - r.reel;
+      const varPct = r.reel ? varValeur / Math.abs(r.reel) : 0;
+      const favorable = r.isCharge ? varValeur <= 0 : varValeur >= 0;
+      return { ...r, varValeur, varPct, favorable };
+    });
+
+    // Postes projetés en hausse plus rapide que le CA projeté (vs réel N-1)
+    const alertes = rows
+      .filter((r) => r.isCharge && r.varValeur > 0 && r.varPct > caGrowth)
+      .sort((a, b) => b.varValeur - a.varValeur);
+
+    return { rows, caGrowth, alertes, caProjete, ebeProjete, ebeReel };
+  }, [charges, totalPrimes, atterrissage]);
+
+  const tresorerie_calc = useMemo(() => {
+    const departCourant = n(tresorerie?.departCourant);
+    const departCAT = n(tresorerie?.departCAT);
+    const departExcedPro = n(tresorerie?.departExcedPro);
+    const virementCAT = n(tresorerie?.virementCAT);
+    const virementExcedPro = n(tresorerie?.virementExcedPro);
+    const virementTotal = virementCAT + virementExcedPro;
+    const moisPrimes = tresorerie?.moisPrimes || "";
+    const encaissementMensuelBase = globalStats.totalCA / 12;
+    let soldeCourant = departCourant;
+    let soldeCAT = departCAT;
+    let soldeExcedPro = departExcedPro;
+    const rows = MONTHS.map((m) => {
+      const decaissementCharges = atterrissage.monthlyTotals.find((mt) => mt.month === m)?.value || 0;
+      const decaissementPrimes = m === moisPrimes ? totalPrimes : 0;
+      const creancesMois = (creances || []).reduce((s, c) => s + n(c.months?.[m]), 0);
+      const dettesMois = (dettes || []).reduce((s, d) => s + n(d.months?.[m]), 0);
+      const decaissement = decaissementCharges + decaissementPrimes + dettesMois;
+      const encaissement = encaissementMensuelBase + creancesMois;
+      const soldeMoisCourant = encaissement - decaissement - virementTotal;
+      soldeCourant += soldeMoisCourant;
+      soldeCAT += virementCAT;
+      soldeExcedPro += virementExcedPro;
+      return {
+        month: m, label: MONTH_LABELS[m], encaissement, creancesMois, decaissementCharges, decaissementPrimes, dettesMois, decaissement,
+        virementCAT, virementExcedPro, soldeMoisCourant,
+        soldeCourantCumule: soldeCourant, soldeCATCumule: soldeCAT, soldeExcedProCumule: soldeExcedPro,
+        soldeEpargneCumule: soldeCAT + soldeExcedPro, soldeTotalCumule: soldeCourant + soldeCAT + soldeExcedPro,
+      };
+    });
+    const soldeCourantFinal = rows.length ? rows[rows.length - 1].soldeCourantCumule : departCourant;
+    const soldeCATFinal = rows.length ? rows[rows.length - 1].soldeCATCumule : departCAT;
+    const soldeExcedProFinal = rows.length ? rows[rows.length - 1].soldeExcedProCumule : departExcedPro;
+    const soldeMin = rows.reduce((min, r) => Math.min(min, r.soldeCourantCumule), departCourant);
+    const totalCreances = (creances || []).reduce((s, c) => s + lineTotal(c), 0);
+    const totalDettes = (dettes || []).reduce((s, d) => s + lineTotal(d), 0);
+    return {
+      rows, encaissementMensuel: encaissementMensuelBase, soldeCourantFinal, soldeCATFinal, soldeExcedProFinal,
+      soldeEpargneFinal: soldeCATFinal + soldeExcedProFinal,
+      soldeTotalFinal: soldeCourantFinal + soldeCATFinal + soldeExcedProFinal,
+      soldeMin, departCourant, departCAT, departExcedPro, totalCreances, totalDettes,
+    };
+  }, [tresorerie, globalStats.totalCA, atterrissage.monthlyTotals, totalPrimes, creances, dettes]);
 
 
   /* ---- Table filtrée ---- */
@@ -780,6 +1171,30 @@ export default function SogecaDashboard() {
     setSort((s) => (s.field === field ? { field, dir: s.dir === "asc" ? "desc" : "asc" } : { field, dir: "asc" }));
   };
 
+  const [syncing, setSyncing] = useState(false);
+
+  const refreshAll = useCallback(async () => {
+    setSyncing(true);
+    await Promise.all([
+      loadClients(false),
+      loadProspects(),
+    ]);
+    setSyncing(false);
+  }, [loadClients, loadProspects]);
+
+  // Rafraîchissement automatique toutes les 20s pour refléter les modifications
+  // des autres utilisateurs, en pause tant qu'une fenêtre d'édition est ouverte
+  // (pour ne pas écraser une saisie en cours).
+  useEffect(() => {
+    const modalOpen = editing || exiting || hardDeleting || editingProspect || validatingProspect || deletingProspect;
+    if (modalOpen) return;
+    const interval = setInterval(() => {
+      loadClients(true);
+      loadProspects();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [editing, exiting, hardDeleting, editingProspect, validatingProspect, deletingProspect, loadClients, loadProspects]);
+
   const handleSave = async (form) => {
     if (!clients) return;
     if (form.id) {
@@ -808,7 +1223,7 @@ export default function SogecaDashboard() {
     setHardDeleting(null);
   };
 
-  const addChargeLine = () => persistCharges([...(charges || []), newCharge()]);
+  const addChargeLine = (categorie) => persistCharges([...(charges || []), newCharge(categorie || "Charges Externes")]);
   const updateChargeLineLocal = (id, patch) =>
     setCharges((prev) => (prev || []).map((c) => (c.id === id ? { ...c, ...patch } : c)));
   const updateChargeLineAndSave = (id, patch) => {
@@ -857,6 +1272,10 @@ export default function SogecaDashboard() {
 
   const updatePcaLocal = (field, value) => setPca((prev) => ({ ...(prev || emptyPca), [field]: value === "" ? "" : Number(value) }));
   const savePcaNow = () => persistPca(pca || emptyPca);
+  const updatePcaModeAndSave = (mode) => persistPca({ ...(pca || emptyPca), mode });
+  const updateTarifTauxLocal = (value) => setTarif((prev) => ({ ...(prev || emptyTarif), taux: value === "" ? "" : Number(value) }));
+  const saveTarifNow = () => persistTarif(tarif || emptyTarif);
+  const toggleTarifActif = () => persistTarif({ ...(tarif || emptyTarif), actif: !(tarif?.actif) });
 
   const updatePrimeCollectifLocal = (value) => setPrimes((prev) => ({ ...(prev || emptyPrimes), collectif: value === "" ? "" : Number(value) }));
   const savePrimesNow = () => persistPrimes(primes || emptyPrimes);
@@ -867,6 +1286,23 @@ export default function SogecaDashboard() {
       return { ...base, individus: { ...base.individus, [nom]: { ...current, [field]: value === "" ? "" : Number(value) } } };
     });
   };
+
+  const updateTresorerieDepartLocal = (field, value) => setTresorerie((prev) => ({ ...(prev || emptyTresorerie), [field]: value === "" ? "" : Number(value) }));
+  const saveTresorerieNow = () => persistTresorerie(tresorerie || emptyTresorerie);
+  const updateMoisPrimes = (value) => {
+    const next = { ...(tresorerie || emptyTresorerie), moisPrimes: value };
+    persistTresorerie(next);
+  };
+
+  const addCreanceLine = () => persistCreances([...(creances || []), newEtalement()]);
+  const updateCreanceLineLocal = (id, patch) => setCreances((prev) => (prev || []).map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const saveCreancesNow = () => persistCreances(creances || []);
+  const removeCreanceLine = (id) => persistCreances((creances || []).filter((c) => c.id !== id));
+
+  const addDetteLine = () => persistDettes([...(dettes || []), newEtalement()]);
+  const updateDetteLineLocal = (id, patch) => setDettes((prev) => (prev || []).map((d) => (d.id === id ? { ...d, ...patch } : d)));
+  const saveDettesNow = () => persistDettes(dettes || []);
+  const removeDetteLine = (id) => persistDettes((dettes || []).filter((d) => d.id !== id));
 
   if (!clients) {
     return (
@@ -894,6 +1330,11 @@ export default function SogecaDashboard() {
             <span className={`text-[12px] transition-opacity ${saving ? "opacity-100" : "opacity-0"}`} style={{ color: "#CFE0D6" }}>
               <Loader2 className="mr-1 inline animate-spin" size={12} /> Enregistrement…
             </span>
+            <button onClick={refreshAll} title="Récupérer les dernières modifications des autres utilisateurs"
+              className="flex items-center gap-1.5 rounded border px-3 py-2 text-[13px] font-medium text-white"
+              style={{ borderColor: "rgba(255,255,255,0.3)" }}>
+              <RotateCcw size={14} className={syncing ? "animate-spin" : ""} /> Actualiser
+            </button>
             <button onClick={() => { setFormMode("new"); setEditing({ ...emptyClient }); }}
               className="flex items-center gap-1.5 rounded px-3.5 py-2 text-[13.5px] font-medium"
               style={{ background: C.gold, color: C.navyDark }}>
@@ -906,8 +1347,8 @@ export default function SogecaDashboard() {
 
       {/* Navigation onglets */}
       <nav style={{ background: C.navyDark }} className="px-5 sm:px-8">
-        <div className="mx-auto flex max-w-6xl gap-1">
-          <button onClick={() => setTab("dashboard")}
+        <div className="mx-auto flex max-w-6xl flex-wrap gap-1">
+          <button onClick={() => goToTab("dashboard")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "dashboard" ? "#FFFFFF" : "#AEB8D4",
@@ -915,7 +1356,7 @@ export default function SogecaDashboard() {
             }}>
             <LayoutDashboard size={14} /> Tableau de bord
           </button>
-          <button onClick={() => setTab("sorties")}
+          <button onClick={() => goToTab("sorties")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "sorties" ? "#FFFFFF" : "#AEB8D4",
@@ -923,7 +1364,7 @@ export default function SogecaDashboard() {
             }}>
             <LogOut size={14} /> Sorties clients {departed.length > 0 && `(${departed.length})`}
           </button>
-          <button onClick={() => setTab("collab")}
+          <button onClick={() => goToTab("collab")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "collab" ? "#FFFFFF" : "#AEB8D4",
@@ -931,40 +1372,94 @@ export default function SogecaDashboard() {
             }}>
             <Users size={14} /> Par collaborateur
           </button>
-          <button onClick={() => setTab("atterrissage")}
+          <button onClick={() => goToTab("atterrissage")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "atterrissage" ? "#FFFFFF" : "#AEB8D4",
               borderBottom: tab === "atterrissage" ? `2px solid ${C.gold}` : "2px solid transparent",
             }}>
-            <Plane size={14} /> Atterrissage
+            <Plane size={14} /> Atterrissage {!advancedUnlocked && <Lock size={11} />}
           </button>
-          <button onClick={() => setTab("prospects")}
+          <button onClick={() => goToTab("prospects")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "prospects" ? "#FFFFFF" : "#AEB8D4",
               borderBottom: tab === "prospects" ? `2px solid ${C.gold}` : "2px solid transparent",
             }}>
-            <Target size={14} /> Prospects {prospects && prospects.length > 0 && `(${prospects.length})`}
+            <Target size={14} /> Prospects {prospects && prospects.length > 0 && `(${prospects.length})`} {!advancedUnlocked && <Lock size={11} />}
           </button>
-          <button onClick={() => setTab("primes")}
+          <button onClick={() => goToTab("primes")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "primes" ? "#FFFFFF" : "#AEB8D4",
               borderBottom: tab === "primes" ? `2px solid ${C.gold}` : "2px solid transparent",
             }}>
-            <Award size={14} /> Primes
+            <Award size={14} /> Primes {!advancedUnlocked && <Lock size={11} />}
           </button>
-          <button onClick={() => setTab("pipeline")}
+          <button onClick={() => goToTab("pipeline")}
             className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
             style={{
               color: tab === "pipeline" ? "#FFFFFF" : "#AEB8D4",
               borderBottom: tab === "pipeline" ? `2px solid ${C.gold}` : "2px solid transparent",
             }}>
-            <Rocket size={14} /> Atterrissage + Prospects
+            <Rocket size={14} /> Atterrissage + Prospects {!advancedUnlocked && <Lock size={11} />}
+          </button>
+          <button onClick={() => goToTab("tresorerie")}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
+            style={{
+              color: tab === "tresorerie" ? "#FFFFFF" : "#AEB8D4",
+              borderBottom: tab === "tresorerie" ? `2px solid ${C.gold}` : "2px solid transparent",
+            }}>
+            <Banknote size={14} /> Trésorerie {!advancedUnlocked && <Lock size={11} />}
+          </button>
+          <button onClick={() => goToTab("creancesdettes")}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
+            style={{
+              color: tab === "creancesdettes" ? "#FFFFFF" : "#AEB8D4",
+              borderBottom: tab === "creancesdettes" ? `2px solid ${C.gold}` : "2px solid transparent",
+            }}>
+            <Receipt size={14} /> Créances &amp; Dettes {!advancedUnlocked && <Lock size={11} />}
+          </button>
+          <button onClick={() => goToTab("comparatif")}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium"
+            style={{
+              color: tab === "comparatif" ? "#FFFFFF" : "#AEB8D4",
+              borderBottom: tab === "comparatif" ? `2px solid ${C.gold}` : "2px solid transparent",
+            }}>
+            <BarChart3 size={14} /> Comparatif N-1 {!advancedUnlocked && <Lock size={11} />}
           </button>
         </div>
       </nav>
+
+      {advancedPromptTab && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(14,36,57,0.45)", backdropFilter: "blur(2px)" }}>
+          <form onSubmit={submitAdvancedCode} className="w-full max-w-sm rounded-md p-6 shadow-xl" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded" style={{ background: C.navy }}>
+                <Lock size={16} style={{ color: C.gold }} />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.mutedLight }}>Accès restreint</p>
+                <h3 className="text-[15px] font-semibold" style={{ color: C.text }}>Code requis</h3>
+              </div>
+            </div>
+            <p className="mb-3 text-[12.5px]" style={{ color: C.muted }}>
+              Cet onglet contient des informations financières sensibles (charges, primes, trésorerie...). Saisissez le code d'accès dédié.
+            </p>
+            <input type="password" autoFocus value={advancedCodeInput} onChange={(e) => setAdvancedCodeInput(e.target.value)}
+              className="mb-3 w-full rounded border px-3 py-2 text-[14px] outline-none" style={{ borderColor: C.border, color: C.text }} placeholder="••••••" />
+            {advancedError && <p className="mb-3 text-[12px]" style={{ color: C.danger }}>{advancedError}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setAdvancedPromptTab(null)} className="rounded border px-4 py-2 text-[13px] font-medium" style={{ borderColor: C.border, color: C.text }}>
+                Annuler
+              </button>
+              <button type="submit" className="rounded px-4 py-2 text-[13px] font-medium text-white" style={{ background: C.navy }}>
+                Déverrouiller
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {tab === "dashboard" && (
       <main className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
@@ -1184,9 +1679,28 @@ export default function SogecaDashboard() {
           </select>
         </div>
 
+        {/* Vision Portefeuille net — tous collaborateurs */}
+        <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <p className="mb-1 text-[12.5px] font-semibold" style={{ color: C.text }}>Portefeuille net par collaborateur</p>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            Portefeuille net = Hono Compta. − valorisation du temps de tenue délégué. Classé du plus élevé au plus faible.
+          </p>
+          <div style={{ width: "100%", height: Math.max(160, collabNetRanking.length * 26) }}>
+            <ResponsiveContainer>
+              <BarChart data={collabNetRanking} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false} />
+                <XAxis type="number" tickFormatter={(v) => eurK(v)} tick={{ fontSize: 10.5, fill: C.mutedLight }} axisLine={{ stroke: C.border }} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11.5, fill: C.text }} axisLine={{ stroke: C.border }} tickLine={false} />
+                <Tooltip formatter={(v) => eur(v)} labelFormatter={(_, p) => p?.[0]?.payload?.fullName || ""} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${C.border}` }} />
+                <Bar dataKey="value" fill={C.gold} radius={[0, 3, 3, 0]} barSize={14} onClick={(data) => setSelectedCollab(data?.payload?.fullName || data?.fullName)} cursor="pointer" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {!selectedCollab ? (
           <div className="rounded-md p-10 text-center text-[13.5px]" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.mutedLight }}>
-            Sélectionnez un collaborateur ci-dessus pour afficher son portefeuille.
+            Sélectionnez un collaborateur ci-dessus (ou une barre du graphique) pour afficher le détail de son portefeuille.
           </div>
         ) : (
         <>
@@ -1198,9 +1712,10 @@ export default function SogecaDashboard() {
             <h3 className="text-[15px] font-semibold" style={{ color: C.text }}>{selectedCollab}</h3>
           </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-5">
             <KpiCard icon={FileText} label="Dossiers" value={collabStats.count} />
             <KpiCard icon={Wallet} label="Total CA" value={eurK(collabStats.total)} sub={eur(collabStats.total)} accent={C.gold} />
+            <KpiCard icon={Landmark} label="Portefeuille net" value={eurK(collabStats.net)} sub={eur(collabStats.net)} />
             <KpiCard icon={TrendingUp} label="CA moyen / client" value={eurK(collabStats.avg)} />
             <KpiCard icon={MapPin} label="Part du CA cabinet" value={`${Math.round(collabStats.pct * 100)}%`} />
           </div>
@@ -1253,7 +1768,7 @@ export default function SogecaDashboard() {
 
         {/* Résultat global */}
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <KpiCard icon={Wallet} label="CA ajusté (avec PCA)" value={eurK(atterrissage.caAjuste)} sub={eur(atterrissage.caAjuste)} accent={C.gold} />
+          <KpiCard icon={Wallet} label={`CA ajusté (PCA${includeCwePennylane ? " + CWE Pennylane" : ""})`} value={eurK(atterrissage.caAjuste)} sub={eur(atterrissage.caAjuste)} accent={C.gold} />
           <KpiCard icon={Landmark} label="Charges fixes + primes" value={eurK(atterrissage.totalCharges + totalPrimes)} sub={`${eur(atterrissage.totalCharges)} + ${eur(totalPrimes)} primes`} />
           <KpiCard icon={TrendingUp} label="Résultat net prévisionnel" value={eurK(atterrissage.resultatNet)} sub={eur(atterrissage.resultatNet)} accent={atterrissage.resultatNet >= 0 ? C.success : C.danger} />
           <KpiCard icon={Plane} label="Taux de marge" value={`${Math.round(atterrissage.tauxMarge * 100)}%`} />
@@ -1261,11 +1776,25 @@ export default function SogecaDashboard() {
 
         {/* Produits constatés d'avance */}
         <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-          <p className="mb-1 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.text }}>
-            <RefreshCw size={14} style={{ color: C.navy }} /> Produits constatés d'avance (PCA)
-          </p>
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.text }}>
+              <RefreshCw size={14} style={{ color: C.navy }} /> Produits constatés d'avance (PCA)
+            </p>
+            <div className="flex rounded border overflow-hidden text-[12px]" style={{ borderColor: C.border }}>
+              <button onClick={() => updatePcaModeAndSave("taux")}
+                className="px-3 py-1.5 font-medium"
+                style={{ background: (pca?.mode || "taux") === "taux" ? C.navy : C.surface, color: (pca?.mode || "taux") === "taux" ? "#fff" : C.muted }}>
+                Taux fixe
+              </button>
+              <button onClick={() => updatePcaModeAndSave("theorique")}
+                className="px-3 py-1.5 font-medium"
+                style={{ background: pca?.mode === "theorique" ? C.navy : C.surface, color: pca?.mode === "theorique" ? "#fff" : C.muted }}>
+                Théorique (par clôture client)
+              </button>
+            </div>
+          </div>
           <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
-            Le PCA N-1 est extourné (rajouté) en début d'année. Le nouveau PCA de clôture se calcule automatiquement en appliquant le taux au CA après cette extourne, et se déduit du CA de l'exercice.
+            Le PCA N-1 est extourné (rajouté) en début d'année. Le PCA de clôture se calcule soit par un taux appliqué au CA, soit ligne à ligne à partir de la date de clôture de chaque client.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div>
@@ -1275,17 +1804,31 @@ export default function SogecaDashboard() {
                 onBlur={savePcaNow}
                 className="w-full rounded border px-3 py-2 text-[14px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
             </div>
-            <div>
-              <label className="mb-1 block text-[12.5px] font-medium" style={{ color: C.muted }}>Taux PCA de clôture (%)</label>
-              <input type="number" value={pca ? pca.tauxCloture : 20}
-                onChange={(e) => updatePcaLocal("tauxCloture", e.target.value)}
-                onBlur={savePcaNow}
-                className="w-full rounded border px-3 py-2 text-[14px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
-            </div>
+            {(pca?.mode || "taux") === "taux" ? (
+              <div>
+                <label className="mb-1 block text-[12.5px] font-medium" style={{ color: C.muted }}>Taux PCA de clôture (%)</label>
+                <input type="number" value={pca ? pca.tauxCloture : 20}
+                  onChange={(e) => updatePcaLocal("tauxCloture", e.target.value)}
+                  onBlur={savePcaNow}
+                  className="w-full rounded border px-3 py-2 text-[14px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+              </div>
+            ) : (
+              <div className="rounded px-3 py-2" style={{ background: "#E6F1EB" }}>
+                <label className="mb-1 block text-[11px] font-medium" style={{ color: C.mutedLight }}>Décalage de fin de mission après clôture (mois)</label>
+                <input type="number" step="0.5" value={pca ? pca.delaiMois : 1.5}
+                  onChange={(e) => updatePcaLocal("delaiMois", e.target.value)}
+                  onBlur={savePcaNow}
+                  className="w-full rounded border px-2 py-1 text-[13px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+                <p className="mt-1 text-[10.5px]" style={{ color: C.mutedLight }}>S'applique aux clôtures ≠ 31/12. Hono Compta. × (mois entre le 30/06 et clôture + décalage) ÷ 12</p>
+                <p className="mt-1.5 text-[10.5px] font-medium" style={{ color: C.text }}>Clôtures 31/12 : règle dédiée — Révision 100% en PCA, Tenue 50% en PCA.</p>
+              </div>
+            )}
             <div className="rounded px-3 py-2" style={{ background: C.bg }}>
               <p className="text-[11.5px]" style={{ color: C.mutedLight }}>PCA de clôture (calculé)</p>
               <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.text }}>{eur(atterrissage.pcaCloture)}</p>
-              <p className="mt-0.5 text-[10.5px]" style={{ color: C.mutedLight }}>{atterrissage.tauxCloture}% × {eurK(atterrissage.caApresExtourne)}</p>
+              <p className="mt-0.5 text-[10.5px]" style={{ color: C.mutedLight }}>
+                {atterrissage.pcaModeTheorique ? "somme théorique par dossier" : `${atterrissage.tauxCloture}% × ${eurK(atterrissage.caApresExtourne)}`}
+              </p>
             </div>
             <div className="rounded px-3 py-2" style={{ background: C.bg }}>
               <p className="text-[11.5px]" style={{ color: C.mutedLight }}>Effet net sur le CA</p>
@@ -1294,6 +1837,88 @@ export default function SogecaDashboard() {
               </p>
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-[11px]" style={{ color: C.mutedLight }}>
+            <span>PCA théorique total : <strong style={{ color: C.text }}>{eur(pcaTheorique.total)}</strong></span>
+            <span>dont DAX : {eur(pcaTheorique.totalDAX)}</span>
+            <span>dont MIMIZAN : {eur(pcaTheorique.totalMIMIZAN)}</span>
+            <span>soit {(globalStats.totalCA ? pcaTheorique.total / globalStats.totalCA * 100 : 0).toFixed(1)}% du CA portefeuille</span>
+          </div>
+        </div>
+
+        {/* Hausse tarifaire annuelle */}
+        <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <div className="mb-1 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.text }}>
+              <TrendingUp size={14} style={{ color: C.navy }} /> Hausse tarifaire annuelle
+            </p>
+            <label className="flex items-center gap-2 text-[12.5px]" style={{ color: C.text }}>
+              <input type="checkbox" checked={!!tarif?.actif} onChange={toggleTarifActif}
+                className="h-4 w-4 rounded" style={{ accentColor: C.navy }} />
+              Appliquer à la projection
+            </label>
+          </div>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            Simule l'effet d'une revalorisation de vos honoraires sur le CA du portefeuille actif utilisé dans l'atterrissage (portefeuille, prospects et comparatif restent inchangés).
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium" style={{ color: C.muted }}>Taux de hausse (%)</label>
+              <input type="number" step="0.5" value={tarif ? tarif.taux : 3}
+                onChange={(e) => updateTarifTauxLocal(e.target.value)}
+                onBlur={saveTarifNow}
+                className="w-full rounded border px-3 py-2 text-[14px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+            </div>
+            <div className="rounded px-3 py-2" style={{ background: C.bg }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>CA après hausse</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.text }}>{eur(globalStats.totalCA * atterrissage.tauxHausse)}</p>
+            </div>
+            <div className="rounded px-3 py-2" style={{ background: tarif?.actif ? "#E6F1EB" : C.bg }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>Supplément de CA</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: tarif?.actif ? C.success : C.text }}>
+                +{eur(atterrissage.hausseMontant)} {tarif?.actif && "· inclus"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Potentiel CWE Pennylane / Cegid */}
+        <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <div className="mb-1 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.text }}>
+              <Receipt size={14} style={{ color: C.navy }} /> Potentiel CWE Pennylane / Cegid — SOGECA DAX
+            </p>
+            <label className="flex items-center gap-2 text-[12.5px]" style={{ color: C.text }}>
+              <input type="checkbox" checked={includeCwePennylane} onChange={(e) => setIncludeCwePennylane(e.target.checked)}
+                className="h-4 w-4 rounded" style={{ accentColor: C.navy }} />
+              Inclure dans le CA ajusté
+            </label>
+          </div>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            Refacturation liée au déploiement Pennylane (SCI, sociétés, BNC) et Cegid (révision, tenue) — potentiel non encore facturé, site DAX uniquement (document transmis, pas de donnée Mimizan).
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {[
+              ["SCI Pennylane", CWE_PENNYLANE_DAX.sci.montant],
+              ["Sociétés Pennylane", CWE_PENNYLANE_DAX.societes.montant],
+              ["BNC Pennylane", CWE_PENNYLANE_DAX.bnc.montant],
+              ["Révision Cegid", CWE_PENNYLANE_DAX.cegidRevision.montant],
+              ["Tenue Cegid (x2 scénarios)", CWE_PENNYLANE_DAX.cegidTenueSansPA.montant + CWE_PENNYLANE_DAX.cegidTenueAvecPA.montant],
+            ].map(([label, val]) => (
+              <div key={label} className="rounded px-3 py-2" style={{ background: C.bg }}>
+                <p className="text-[11px]" style={{ color: C.mutedLight }}>{label}</p>
+                <p className="tabular-nums text-[14px] font-semibold" style={{ color: C.text }}>{eur(val)}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between rounded px-3 py-2" style={{ background: includeCwePennylane ? "#E6F1EB" : C.bg }}>
+            <span className="text-[12.5px] font-medium" style={{ color: C.text }}>Total potentiel</span>
+            <span className="tabular-nums text-[15px] font-semibold" style={{ color: includeCwePennylane ? C.success : C.text }}>
+              {eur(CWE_PENNYLANE_DAX.total)} {includeCwePennylane && "· inclus dans le CA ajusté"}
+            </span>
+          </div>
+          <p className="mt-2 text-[10.5px]" style={{ color: C.mutedLight }}>
+            ⚠ Les deux lignes « Tenue Cegid » (sans PA / avec PA) portent sur les mêmes 71,5 dossiers avec deux scénarios de forfait — le total du document les additionne. Vérifiez qu'il ne s'agit pas d'un double comptage avant de valider.
+          </p>
         </div>
 
         {/* Résultat par site */}
@@ -1368,6 +1993,7 @@ export default function SogecaDashboard() {
             <thead>
               <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
                 <th className="sticky left-0 px-2.5 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, background: C.bg, minWidth: 210 }}>Libellé</th>
+                <th className="px-2 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, minWidth: 140 }}>Catégorie</th>
                 <th className="px-2 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, minWidth: 90 }}>Site</th>
                 {MONTHS.map((m) => (
                   <th key={m} className="px-1.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted, minWidth: 78 }}>{MONTH_LABELS[m]}</th>
@@ -1379,13 +2005,19 @@ export default function SogecaDashboard() {
             <tbody>
               {CATEGORIES_CHARGE.map((cat) => {
                 const rows = (charges || []).filter((c) => c.categorie === cat);
-                if (rows.length === 0) return null;
                 const catMonthly = MONTHS.map((m) => rows.reduce((s, c) => s + n(c.months?.[m]), 0));
                 const catTotal = catMonthly.reduce((s, v) => s + v, 0);
                 return (
                   <React.Fragment key={cat}>
                     <tr style={{ background: "#EEF1F6" }}>
-                      <td colSpan={16} className="px-2.5 py-1.5 text-[11px] font-semibold" style={{ color: C.navy }}>{cat}</td>
+                      <td colSpan={17} className="px-2.5 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold" style={{ color: C.navy }}>{cat}</span>
+                          <button onClick={() => addChargeLine(cat)} className="flex items-center gap-1 rounded px-2 py-0.5 text-[10.5px] font-medium" style={{ color: C.navy, border: `1px solid ${C.navy}` }}>
+                            <Plus size={11} /> Ajouter ici
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                     {rows.map((row) => (
                       <tr key={row.id} className="hover:bg-slate-50" style={{ borderBottom: `1px solid ${C.bg}` }}>
@@ -1394,6 +2026,12 @@ export default function SogecaDashboard() {
                             onChange={(e) => updateChargeLineLocal(row.id, { libelle: e.target.value })}
                             onBlur={saveChargesNow}
                             className="w-full rounded border px-1.5 py-1 text-[12px] outline-none" style={{ borderColor: C.border, color: C.text }} />
+                        </td>
+                        <td className="px-2 py-1">
+                          <select value={row.categorie} onChange={(e) => updateChargeLineAndSave(row.id, { categorie: e.target.value })}
+                            className="rounded border px-1 py-1 text-[11px] outline-none" style={{ borderColor: C.border, color: C.text }}>
+                            {CATEGORIES_CHARGE.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
                         </td>
                         <td className="px-2 py-1">
                           <select value={row.site} onChange={(e) => updateChargeLineAndSave(row.id, { site: e.target.value })}
@@ -1417,8 +2055,13 @@ export default function SogecaDashboard() {
                         </td>
                       </tr>
                     ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={17} className="px-2.5 py-2 text-center text-[11px]" style={{ color: C.mutedLight }}>Aucune ligne dans cette catégorie.</td>
+                      </tr>
+                    )}
                     <tr style={{ background: C.bg, borderBottom: `2px solid ${C.border}` }}>
-                      <td className="sticky left-0 px-2.5 py-1.5 text-[11px] font-semibold" style={{ color: C.text, background: C.bg }} colSpan={2}>Sous-total {cat}</td>
+                      <td className="sticky left-0 px-2.5 py-1.5 text-[11px] font-semibold" style={{ color: C.text, background: C.bg }} colSpan={3}>Sous-total {cat}</td>
                       {catMonthly.map((v, i) => (
                         <td key={i} className="px-1.5 py-1.5 text-right text-[11px] font-medium tabular-nums" style={{ color: C.text }}>{eurK(v)}</td>
                       ))}
@@ -1429,7 +2072,7 @@ export default function SogecaDashboard() {
                 );
               })}
               {(!charges || charges.length === 0) && (
-                <tr><td colSpan={16} className="px-3 py-10 text-center text-[13.5px]" style={{ color: C.mutedLight }}>
+                <tr><td colSpan={17} className="px-3 py-10 text-center text-[13.5px]" style={{ color: C.mutedLight }}>
                   Aucune charge saisie. Cliquez sur « Ajouter une charge » pour commencer.
                 </td></tr>
               )}
@@ -1762,6 +2405,432 @@ export default function SogecaDashboard() {
             </tbody>
           </table>
         </div>
+      </main>
+      )}
+
+      {tab === "tresorerie" && (
+      <main className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[16px] font-semibold" style={{ color: C.text }}>Trésorerie prévisionnelle</h2>
+            <p className="text-[12.5px]" style={{ color: C.muted }}>
+              Estimation simplifiée : les honoraires annuels du portefeuille actif sont répartis à parts égales sur les 12 mois (juil-26 à juin-27), plus l'étalement de vos créances clients et dettes fournisseurs au 30/06/2026 (onglet « Créances &amp; Dettes »). Les décaissements reprennent vos charges fixes mensuelles, plus les primes le mois choisi ci-dessous. Un virement mensuel fixe peut être défini du compte courant vers chaque compte d'épargne.
+            </p>
+          </div>
+          <span className={`text-[12px] transition-opacity ${savingTresorerie ? "opacity-100" : "opacity-0"}`} style={{ color: C.mutedLight }}>
+            <Loader2 className="mr-1 inline animate-spin" size={12} /> Enregistrement…
+          </span>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <label className="mb-1 block text-[12.5px] font-medium" style={{ color: C.muted }}>Trésorerie de départ — Compte courant</label>
+            <input type="number" value={tresorerie ? tresorerie.departCourant : 0}
+              onChange={(e) => updateTresorerieDepartLocal("departCourant", e.target.value)}
+              onBlur={saveTresorerieNow}
+              className="w-full rounded border px-3 py-2 text-[15px] font-medium tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+          </div>
+          <div className="rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <label className="mb-1 block text-[12.5px] font-medium" style={{ color: C.muted }}>Mois de versement des primes</label>
+            <select value={tresorerie ? tresorerie.moisPrimes : ""} onChange={(e) => updateMoisPrimes(e.target.value)}
+              className="w-full rounded border px-3 py-2 text-[14px] outline-none" style={{ borderColor: C.border, color: C.text }}>
+              <option value="">Non versées / non définies</option>
+              {MONTHS.map((m) => <option key={m} value={m}>{MONTH_LABELS[m]}</option>)}
+            </select>
+            <p className="mt-1 text-[11px]" style={{ color: C.mutedLight }}>Total primes : {eur(totalPrimes)}</p>
+          </div>
+          <div className="rounded-md px-4 py-3.5" style={{ background: tresorerie_calc.soldeMin < 0 ? "#FBEAE0" : C.bg }}>
+            <p className="text-[11.5px] font-medium uppercase tracking-wide" style={{ color: C.mutedLight }}>Point bas — compte courant</p>
+            <p className="mt-1 tabular-nums text-[22px] font-semibold" style={{ color: tresorerie_calc.soldeMin < 0 ? C.danger : C.text }}>{eur(tresorerie_calc.soldeMin)}</p>
+          </div>
+        </div>
+
+        <p className="mb-3 text-[12.5px] font-semibold" style={{ color: C.text }}>Comptes d'épargne</p>
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.navy }}>
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: C.gold }} /> Comptes à Terme (CAT)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[11.5px]" style={{ color: C.mutedLight }}>Solde de départ</label>
+                <input type="number" value={tresorerie ? tresorerie.departCAT : 0}
+                  onChange={(e) => updateTresorerieDepartLocal("departCAT", e.target.value)}
+                  onBlur={saveTresorerieNow}
+                  className="w-full rounded border px-2 py-1.5 text-[13.5px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11.5px]" style={{ color: C.mutedLight }}>Virement mensuel (courant →)</label>
+                <input type="number" value={tresorerie ? tresorerie.virementCAT : 0}
+                  onChange={(e) => updateTresorerieDepartLocal("virementCAT", e.target.value)}
+                  onBlur={saveTresorerieNow}
+                  className="w-full rounded border px-2 py-1.5 text-[13.5px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.navy }}>
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: C.mimizan }} /> Excédent PRO
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[11.5px]" style={{ color: C.mutedLight }}>Solde de départ</label>
+                <input type="number" value={tresorerie ? tresorerie.departExcedPro : 0}
+                  onChange={(e) => updateTresorerieDepartLocal("departExcedPro", e.target.value)}
+                  onBlur={saveTresorerieNow}
+                  className="w-full rounded border px-2 py-1.5 text-[13.5px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11.5px]" style={{ color: C.mutedLight }}>Virement mensuel (courant →)</label>
+                <input type="number" value={tresorerie ? tresorerie.virementExcedPro : 0}
+                  onChange={(e) => updateTresorerieDepartLocal("virementExcedPro", e.target.value)}
+                  onBlur={saveTresorerieNow}
+                  className="w-full rounded border px-2 py-1.5 text-[13.5px] tabular-nums outline-none" style={{ borderColor: C.border, color: C.text }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <KpiCard icon={Banknote} label="Encaissement mensuel moyen" value={eurK(tresorerie_calc.encaissementMensuel)} />
+          <KpiCard icon={Landmark} label="Solde compte courant (juin-27)" value={eurK(tresorerie_calc.soldeCourantFinal)} accent={tresorerie_calc.soldeCourantFinal >= 0 ? C.success : C.danger} />
+          <KpiCard icon={Award} label="Comptes à Terme (juin-27)" value={eurK(tresorerie_calc.soldeCATFinal)} accent={C.gold} />
+          <KpiCard icon={Award} label="Excédent PRO (juin-27)" value={eurK(tresorerie_calc.soldeExcedProFinal)} accent={C.mimizan} />
+        </div>
+
+        <div className="mb-6 flex items-center justify-between rounded-md px-4 py-3.5" style={{ background: C.navy }}>
+          <span className="flex items-center gap-2 text-[13px] font-medium text-white">
+            <Banknote size={16} style={{ color: C.gold }} /> Trésorerie totale (courant + CAT + Excédent PRO) au 30 juin 2027
+          </span>
+          <span className="tabular-nums text-[19px] font-semibold" style={{ color: C.gold }}>
+            {eur(tresorerie_calc.soldeTotalFinal)}
+          </span>
+        </div>
+
+        {/* Évolution du solde */}
+        <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <p className="mb-1 text-[12.5px] font-semibold" style={{ color: C.text }}>Évolution des soldes cumulés</p>
+          <p className="mb-3 text-[11px]" style={{ color: C.mutedLight }}>Barres empilées : compte courant, Comptes à Terme (doré), Excédent PRO (vert).</p>
+          <div style={{ width: "100%", height: 200 }}>
+            <ResponsiveContainer>
+              <BarChart data={tresorerie_calc.rows} margin={{ left: 0, right: 8, top: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10.5, fill: C.mutedLight }} axisLine={{ stroke: C.border }} tickLine={false} />
+                <YAxis tickFormatter={(v) => eurK(v)} tick={{ fontSize: 10.5, fill: C.mutedLight }} axisLine={{ stroke: C.border }} tickLine={false} width={55} />
+                <Tooltip formatter={(v) => eur(v)} contentStyle={{ fontSize: 12, borderRadius: 6, border: `1px solid ${C.border}` }} />
+                <Bar dataKey="soldeCourantCumule" stackId="tres" name="Compte courant">
+                  {tresorerie_calc.rows.map((r, i) => <Cell key={i} fill={r.soldeCourantCumule >= 0 ? C.navy : C.danger} />)}
+                </Bar>
+                <Bar dataKey="soldeCATCumule" stackId="tres" fill={C.gold} name="Comptes à Terme" />
+                <Bar dataKey="soldeExcedProCumule" stackId="tres" fill={C.mimizan} radius={[3, 3, 0, 0]} name="Excédent PRO" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Détail mensuel */}
+        <p className="mb-3 text-[12.5px] font-semibold" style={{ color: C.text }}>Détail mensuel</p>
+        <div className="overflow-x-auto rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <table className="w-full min-w-[1040px] border-collapse text-[12.5px]">
+            <thead>
+              <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                <th className="px-2.5 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Mois</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Encaissements</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>dont créances</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Charges</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>dont dettes</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Primes</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Vir. CAT</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Vir. Excéd. PRO</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.text }}>Solde courant</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.text }}>Solde CAT</th>
+                <th className="px-2.5 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.text }}>Solde Excéd. PRO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tresorerie_calc.rows.map((r) => (
+                <tr key={r.month} style={{ borderBottom: `1px solid ${C.bg}` }}>
+                  <td className="px-2.5 py-1.5" style={{ color: C.text }}>{r.label}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: C.success }}>+{eur(r.encaissement)}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: r.creancesMois ? C.success : C.mutedLight }}>{r.creancesMois ? `+${eur(r.creancesMois)}` : "—"}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: C.muted }}>−{eur(r.decaissementCharges)}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: r.dettesMois ? C.danger : C.mutedLight }}>{r.dettesMois ? `−${eur(r.dettesMois)}` : "—"}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: r.decaissementPrimes ? C.danger : C.mutedLight }}>{r.decaissementPrimes ? `−${eur(r.decaissementPrimes)}` : "—"}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: r.virementCAT ? C.gold : C.mutedLight }}>{r.virementCAT ? `−${eur(r.virementCAT)}` : "—"}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums" style={{ color: r.virementExcedPro ? C.mimizan : C.mutedLight }}>{r.virementExcedPro ? `−${eur(r.virementExcedPro)}` : "—"}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold" style={{ color: r.soldeCourantCumule >= 0 ? C.text : C.danger }}>{eur(r.soldeCourantCumule)}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold" style={{ color: C.text }}>{eur(r.soldeCATCumule)}</td>
+                  <td className="px-2.5 py-1.5 text-right tabular-nums font-semibold" style={{ color: C.text }}>{eur(r.soldeExcedProCumule)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+      )}
+
+      {tab === "creancesdettes" && (
+      <main className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
+        <div className="mb-4">
+          <h2 className="text-[16px] font-semibold" style={{ color: C.text }}>Créances clients &amp; Dettes fournisseurs au 30/06/2026</h2>
+          <p className="text-[12.5px]" style={{ color: C.muted }}>
+            Étalez sur les 12 mois de l'exercice vos créances clients restant à encaisser et vos dettes fournisseurs restant à payer au 30 juin 2026. Ces montants viennent s'ajouter aux encaissements/décaissements du portefeuille dans l'onglet Trésorerie.
+          </p>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <KpiCard icon={Receipt} label="Total créances à encaisser" value={eurK(tresorerie_calc.totalCreances)} sub={eur(tresorerie_calc.totalCreances)} accent={C.success} />
+          <KpiCard icon={Receipt} label="Total dettes à payer" value={eurK(tresorerie_calc.totalDettes)} sub={eur(tresorerie_calc.totalDettes)} accent={C.danger} />
+        </div>
+
+        <EtalementTable
+          title="Créances clients au 30/06/2026"
+          subtitle="Montants restant à encaisser, répartis sur les mois où vous les attendez."
+          rows={creances || []}
+          accentColor={C.success}
+          onAdd={addCreanceLine}
+          onUpdateLocal={updateCreanceLineLocal}
+          onSave={saveCreancesNow}
+          onRemove={removeCreanceLine}
+          totalLabel="Total créances"
+        />
+
+        <EtalementTable
+          title="Dettes fournisseurs au 30/06/2026"
+          subtitle="Montants restant à payer, répartis sur les mois où vous prévoyez de les régler."
+          rows={dettes || []}
+          accentColor={C.danger}
+          onAdd={addDetteLine}
+          onUpdateLocal={updateDetteLineLocal}
+          onSave={saveDettesNow}
+          onRemove={removeDetteLine}
+          totalLabel="Total dettes"
+        />
+      </main>
+      )}
+
+      {tab === "comparatif" && (
+      <main className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
+        <div className="mb-4">
+          <h2 className="text-[16px] font-semibold" style={{ color: C.text }}>Comparatif Projeté vs Réel N-1</h2>
+          <p className="text-[12.5px]" style={{ color: C.muted }}>
+            Votre atterrissage projeté (juil-26 → juin-27) confronté à l'exercice réel 2025-26 (source : état de synthèse transmis).
+          </p>
+        </div>
+
+        {/* Comparatif Projeté vs Réel */}
+        <div className="mb-6 overflow-x-auto rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Solde intermédiaire</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.gold, background: C.navy }}>Projeté (2026-27)</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Réel N-1 (2025-26)</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Variation</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projVsReel.rows.map((r, i) => {
+                const bold = r.label.includes("Valeur ajoutée") || r.label.includes("Excédent brut");
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid ${C.bg}`, background: bold ? C.bg : "transparent" }}>
+                    <td className="px-3 py-2" style={{ color: C.text, fontWeight: bold ? 600 : 400 }}>{r.label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.navy, fontWeight: bold ? 700 : 600 }}>{eur(r.projete)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.muted }}>{eur(r.reel)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium" style={{ color: r.favorable ? C.success : C.danger }}>
+                      {r.varValeur >= 0 ? "+" : ""}{eur(r.varValeur)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium" style={{ color: r.favorable ? C.success : C.danger }}>
+                      {r.varPct >= 0 ? "+" : ""}{(r.varPct * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mb-6 text-[11px]" style={{ color: C.mutedLight }}>
+          Comparaison arrêtée au niveau de l'Excédent Brut d'Exploitation : les dotations aux amortissements, produits/charges financiers, éléments exceptionnels et impôt sur les bénéfices ne sont pas modélisés dans l'atterrissage, donc pas comparables au « Résultat de l'exercice » réel.
+        </p>
+
+        {/* Alertes sur la projection */}
+        {projVsReel.alertes.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-1 text-[12.5px] font-semibold" style={{ color: C.text }}>Postes à surveiller dans la projection</p>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            Ces catégories projetées progressent plus vite que le CA projeté (+{(projVsReel.caGrowth * 100).toFixed(1)}% vs réel N-1) — à challenger si la hausse n'est pas pleinement justifiée.
+          </p>
+          <div className="space-y-2">
+            {projVsReel.alertes.map((r, i) => (
+              <div key={i} className="flex items-center justify-between rounded-md px-4 py-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ background: C.danger }}>{i + 1}</span>
+                  <div>
+                    <p className="text-[13.5px] font-medium" style={{ color: C.text }}>{r.label}</p>
+                    <p className="text-[11px]" style={{ color: C.mutedLight }}>{eur(r.reel)} (réel N-1) → {eur(r.projete)} (projeté)</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="flex items-center justify-end gap-1 tabular-nums text-[14px] font-semibold" style={{ color: C.danger }}>
+                    <ArrowUp size={13} /> +{eur(r.varValeur)}
+                  </p>
+                  <p className="tabular-nums text-[11px]" style={{ color: C.mutedLight }}>+{(r.varPct * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        )}
+
+        {/* Lien avec le PCA de l'onglet Atterrissage */}
+        <div className="mb-6 rounded-md p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <p className="mb-1 flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: C.text }}>
+            <RefreshCw size={14} style={{ color: C.navy }} /> Compte 706002 — Variation factures d'avance (PCA réel)
+          </p>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            C'est la ligne comptable réelle qui correspond au PCA saisi dans l'onglet Atterrissage (extourne N-1 moins nouveau PCA constaté).
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <div className="rounded px-3 py-2" style={{ background: C.bg }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>N (2025-26)</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.danger }}>{eur(SIG_DATA.pca.n)}</p>
+              <p className="text-[10.5px]" style={{ color: C.mutedLight }}>soit {(Math.abs(SIG_DATA.pca.n) / SIG_DATA.sig.ca.n * 100).toFixed(1)}% du CA</p>
+            </div>
+            <div className="rounded px-3 py-2" style={{ background: C.bg }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>N-1 (2024-25)</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.text }}>{eur(SIG_DATA.pca.n1)}</p>
+              <p className="text-[10.5px]" style={{ color: C.mutedLight }}>soit {(Math.abs(SIG_DATA.pca.n1) / SIG_DATA.sig.ca.n1 * 100).toFixed(1)}% du CA</p>
+            </div>
+            <div className="rounded px-3 py-2" style={{ background: C.bg }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>Variation</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.danger }}>{eur(SIG_DATA.pca.n - SIG_DATA.pca.n1)}</p>
+            </div>
+            <div className="rounded px-3 py-2" style={{ background: "#FBEAE0" }}>
+              <p className="text-[11.5px]" style={{ color: C.mutedLight }}>Taux utilisé dans Atterrissage</p>
+              <p className="tabular-nums text-[15px] font-semibold" style={{ color: C.danger }}>{atterrissage.tauxCloture}%</p>
+              <p className="text-[10.5px]" style={{ color: C.danger }}>vs {(Math.abs(SIG_DATA.pca.n) / SIG_DATA.sig.ca.n * 100).toFixed(1)}% observé réellement en N</p>
+            </div>
+          </div>
+        </div>
+
+        {/* SIG récapitulatif */}
+        <div className="mb-3 mt-8 border-t pt-6" style={{ borderColor: C.border }}>
+          <p className="text-[12.5px] font-semibold" style={{ color: C.text }}>Pour référence — historique réel 2025-26 vs 2024-25</p>
+          <p className="text-[11.5px]" style={{ color: C.mutedLight }}>Les deux exercices déjà clos, sans lien avec la projection ci-dessus.</p>
+        </div>
+        <div className="mb-6 overflow-x-auto rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Solde intermédiaire</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>N (2025-26)</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>N-1 (2024-25)</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Variation</th>
+                <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["Chiffre d'affaires H.T.", SIG_DATA.sig.ca, false],
+                ["Autres achats et charges externes", SIG_DATA.sig.chargesExternes, true],
+                ["Valeur ajoutée", SIG_DATA.sig.valeurAjoutee, false],
+                ["Impôts, taxes et versements assimilés", SIG_DATA.sig.impotsTaxes, true],
+                ["Charges de personnel", SIG_DATA.sig.chargesPersonnel, true],
+                ["Excédent brut d'exploitation", SIG_DATA.sig.ebe, false],
+                ["Résultat d'exploitation", SIG_DATA.sig.resultatExploitation, false],
+                ["Résultat courant avant impôts", SIG_DATA.sig.resultatCourantAvantImpots, false],
+                ["Résultat de l'exercice", SIG_DATA.sig.resultatExercice, false],
+              ].map(([label, v, isCharge], i) => {
+                const varValeur = v.n - v.n1;
+                const varPct = v.n1 ? varValeur / Math.abs(v.n1) : 0;
+                const bold = ["Valeur ajoutée", "Excédent brut d'exploitation", "Résultat d'exploitation", "Résultat de l'exercice"].includes(label);
+                // pour une charge, une hausse (varValeur>0) est défavorable -> rouge ; pour un produit/résultat, une hausse est favorable -> vert
+                const favorable = isCharge ? varValeur <= 0 : varValeur >= 0;
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid ${C.bg}`, background: bold ? C.bg : "transparent" }}>
+                    <td className="px-3 py-2" style={{ color: C.text, fontWeight: bold ? 600 : 400 }}>{label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.text, fontWeight: bold ? 600 : 400 }}>{eur(v.n)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.muted }}>{eur(v.n1)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium" style={{ color: favorable ? C.success : C.danger }}>
+                      {varValeur >= 0 ? "+" : ""}{eur(varValeur)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium" style={{ color: favorable ? C.success : C.danger }}>
+                      {varPct >= 0 ? "+" : ""}{(varPct * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Axes d'amélioration */}
+        <div className="mb-6">
+          <p className="mb-1 text-[12.5px] font-semibold" style={{ color: C.text }}>Axes d'amélioration</p>
+          <p className="mb-3 text-[11.5px]" style={{ color: C.mutedLight }}>
+            Postes de charges dont la progression dépasse celle du chiffre d'affaires (+{(comparatif.caGrowthPct * 100).toFixed(1)}%), classés par impact en euros décroissant — ce sont eux qui pèsent le plus sur l'érosion de marge.
+          </p>
+          <div className="space-y-2">
+            {comparatif.axesAmelioration.map((l, i) => (
+              <div key={i} className="flex items-center justify-between rounded-md px-4 py-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ background: C.danger }}>{i + 1}</span>
+                  <div>
+                    <p className="text-[13.5px] font-medium" style={{ color: C.text }}>{l.libelle}</p>
+                    <p className="text-[11px]" style={{ color: C.mutedLight }}>{l.categorie} · {eur(l.n1)} → {eur(l.n)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="flex items-center justify-end gap-1 tabular-nums text-[14px] font-semibold" style={{ color: C.danger }}>
+                    <ArrowUp size={13} /> +{eur(l.varValeur)}
+                  </p>
+                  <p className="tabular-nums text-[11px]" style={{ color: C.mutedLight }}>{l.varPct === Infinity ? "nouveau" : `+${(l.varPct * 100).toFixed(0)}%`}</p>
+                </div>
+              </div>
+            ))}
+            {comparatif.axesAmelioration.length === 0 && (
+              <p className="rounded-md px-4 py-6 text-center text-[13px]" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.mutedLight }}>
+                Aucun poste ne progresse plus vite que le chiffre d'affaires.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Détail par catégorie */}
+        {[
+          { title: "Détail — Autres achats et charges externes", data: SIG_DATA.chargesExternes },
+          { title: "Détail — Charges de personnel", data: SIG_DATA.chargesPersonnel },
+        ].map(({ title, data }) => (
+          <div key={title} className="mb-6">
+            <p className="mb-3 text-[12.5px] font-semibold" style={{ color: C.text }}>{title}</p>
+            <div className="overflow-x-auto rounded-md" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+              <table className="w-full border-collapse text-[12.5px]">
+                <thead>
+                  <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                    <th className="px-3 py-2 text-left text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Poste</th>
+                    <th className="px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>N</th>
+                    <th className="px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>N-1</th>
+                    <th className="px-3 py-2 text-right text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: C.muted }}>Variation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...data].sort((a, b) => (b.n - b.n1) - (a.n - a.n1)).map((l, i) => {
+                    const v = l.n - l.n1;
+                    return (
+                      <tr key={i} style={{ borderBottom: `1px solid ${C.bg}` }}>
+                        <td className="px-3 py-1.5" style={{ color: C.text }}>{l.libelle}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: C.text }}>{eur(l.n)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: C.muted }}>{eur(l.n1)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums font-medium" style={{ color: v <= 0 ? C.success : C.danger }}>{v >= 0 ? "+" : ""}{eur(v)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
       </main>
       )}
 
